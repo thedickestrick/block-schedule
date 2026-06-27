@@ -21,21 +21,48 @@ once, and recurring ones are scheduled automatically every day.
   Tap it to open the app. There's an "add widget to home screen" button in the app's top bar.
 - **All data stays on the phone** (Room/SQLite). No accounts, no internet, fully private.
 
-## Install on a phone
+## Install on a phone (once)
 
-The ready-to-install file is:
+Grab the latest APK from the releases page:
 
 ```
-app/build/outputs/apk/release/app-release.apk
+https://github.com/thedickestrick/block-schedule/releases/latest
 ```
 
-1. Copy `app-release.apk` to the phone (USB, Google Drive, email to herself, etc.).
-2. On the phone, tap the file. Android will ask to allow installing from this source —
-   approve it (Settings → "Install unknown apps" for the app you opened it from).
-3. Open **Block Schedule**, add a few tasks, then tap the **add-to-home-screen icon**
-   (top-right) — or long-press the home screen → Widgets → Block Schedule → "Today's Schedule".
+1. On the phone, open that link and download **app-release.apk**.
+2. Tap the file. Android will ask to allow installing from this source — approve it.
+3. Open **Block Schedule**, add a few tasks, then tap the **open-in-new icon** (top-right)
+   to drop the widget on the home screen — or long-press the home screen → Widgets →
+   Block Schedule → "Today's Schedule".
 
-Minimum Android version: **8.0 (API 26)**. Works on anything newer.
+Minimum Android version: **8.0 (API 26)**. After this one install, the app keeps itself
+up to date (see below).
+
+## Auto-updates
+
+The app only has to be installed once. After that:
+
+- On launch it checks the GitHub releases for a newer version (toggle in **Settings →
+  Check for updates automatically**, on by default; there's also a **Check now** button).
+- If there's a newer version, a banner offers **Update now** → it downloads the new APK and
+  Android shows **one** "Update this app?" confirmation. Tap it and you're on the new version.
+- The first update will ask you to allow "install unknown apps" for Block Schedule — a
+  one-time grant. After that, updates are a single tap.
+
+> Note: a sideloaded app can't update *fully* silently — Android always shows that one
+> confirmation. That's the most automatic an off-Play-Store app can be.
+
+### Publishing a new version (you, on the PC)
+
+```powershell
+.\release.ps1 -VersionName 1.2 -Notes "Added reminders before each block."
+```
+
+This bumps `APP_VERSION_CODE`, builds a signed APK, writes `version.json`, and creates a
+GitHub release (tag `vX.Y`) with both files attached. The app reads `releases/latest`, so
+the newest release is offered automatically on the next check. **Every release must be
+signed with the same `blockschedule-release.jks`** (the script handles this) or phones will
+refuse the update.
 
 ## Building from source (Windows)
 

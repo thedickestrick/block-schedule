@@ -34,8 +34,13 @@ Set-Content -Path $gp -Value $lines -Encoding ascii
 Write-Host "Building versionCode=$code versionName=$VersionName ..."
 
 # --- build signed APK ---
-& "$root\gradlew.bat" assembleRelease --console=plain
-if ($LASTEXITCODE -ne 0) { throw "Gradle build failed" }
+# Native tools (gradlew, gh) write progress to stderr; don't let that abort the script.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& "$root\gradlew.bat" assembleRelease --console=plain 2>&1 | Write-Host
+$buildExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
+if ($buildExit -ne 0) { throw "Gradle build failed" }
 $apk = Join-Path $root "app\build\outputs\apk\release\app-release.apk"
 if (-not (Test-Path $apk)) { throw "APK not found at $apk" }
 
@@ -50,7 +55,10 @@ $vjson = Join-Path $root "version.json"
 ($manifest | ConvertTo-Json) | Set-Content -Path $vjson -Encoding ascii
 
 # --- publish GitHub release (newest = "latest") ---
-gh release create "v$VersionName" $apk $vjson --title "v$VersionName" --notes $Notes
-if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+$ErrorActionPreference = "Continue"
+gh release create "v$VersionName" $apk $vjson --title "v$VersionName" --notes $Notes 2>&1 | Write-Host
+$ghExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
+if ($ghExit -ne 0) { throw "gh release create failed" }
 
 Write-Host "Published v$VersionName (code $code). The app will offer it on next launch / check."
