@@ -1,0 +1,18 @@
+# Build output
+build/
+.gradle/
+*.apk
+
+# Local config / secrets — NEVER commit these
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Generated release manifest (published as a release asset, not committed)
+version.json

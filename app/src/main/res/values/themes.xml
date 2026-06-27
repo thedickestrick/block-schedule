@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme: Material3 with no action bar; Compose draws the UI. -->
+    <style name="Theme.BlockSchedule" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

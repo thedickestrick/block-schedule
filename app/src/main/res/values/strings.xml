@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Block Schedule</string>
+    <string name="widget_label">Today\'s Schedule</string>
+</resources>
