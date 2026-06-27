@@ -6,9 +6,9 @@ once, and recurring ones are scheduled automatically every day.
 
 ## What it does
 
-- **Recurring tasks** are scheduled automatically: **daily, weekly, every 2 weeks,
-  monthly, yearly**. (Weekly/bi-weekly let you pick specific weekdays, e.g. gym on
-  Mon/Wed/Fri.)
+- **Recurring tasks** are scheduled automatically: **daily, weekdays (Mon–Fri), weekends
+  (Sat–Sun), weekly, every 2 weeks, monthly, yearly**. (Weekly/bi-weekly let you pick
+  specific weekdays, e.g. gym on Mon/Wed/Fri.)
 - **Count-based frequencies:** **X times a week** (auto-spread across the week, e.g. 3× →
   Mon/Wed/Fri) and **X times a day** (N instances spread across a window, e.g. drink water 4×).
 - **Sub-blocks:** nest a task inside another, like a lunch break inside the work block. It

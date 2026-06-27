@@ -35,6 +35,8 @@ object RecurrenceText {
         return when (task.frequency) {
             Frequency.ONCE -> "Once on ${anchor.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}"
             Frequency.DAILY -> "Every day"
+            Frequency.WEEKDAYS -> "Weekdays (Mon–Fri)"
+            Frequency.WEEKENDS -> "Weekends (Sat–Sun)"
             Frequency.WEEKLY -> "Weekly · ${weekdayList(task)}"
             Frequency.BIWEEKLY -> "Every 2 weeks · ${weekdayList(task)}"
             Frequency.MONTHLY -> "Monthly · ${ordinal(anchor.dayOfMonth)}"

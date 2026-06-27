@@ -29,6 +29,10 @@ object Scheduler {
         return when (task.frequency) {
             Frequency.ONCE -> date == anchor
             Frequency.DAILY -> !date.isBefore(anchor)
+            Frequency.WEEKDAYS ->
+                !date.isBefore(anchor) && date.dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+            Frequency.WEEKENDS ->
+                !date.isBefore(anchor) && date.dayOfWeek in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
             Frequency.WEEKLY -> !date.isBefore(anchor) && matchesWeekday(task, date)
             Frequency.BIWEEKLY ->
                 !date.isBefore(anchor) && matchesWeekday(task, date) && isEvenWeek(anchor, date)

@@ -12,6 +12,8 @@ package com.blockschedule.data
 enum class Frequency(val label: String) {
     ONCE("One time"),
     DAILY("Daily"),
+    WEEKDAYS("Weekdays (Mon–Fri)"),
+    WEEKENDS("Weekends (Sat–Sun)"),
     WEEKLY("Weekly"),
     BIWEEKLY("Every 2 weeks"),
     MONTHLY("Monthly"),
