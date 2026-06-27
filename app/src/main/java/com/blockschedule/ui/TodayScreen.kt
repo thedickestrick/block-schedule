@@ -183,13 +183,27 @@ fun TodayScreen(
 
                 UpdateBanner(updateVm)
 
-                Text(
-                    "Today's crew: ${theme.emoji} ${theme.name}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+                val crewAnimal = theme.animals.firstOrNull { hasAnimalArt(it) } ?: theme.emoji
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CuteAnimal(crewAnimal, 40.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            "Today's crew",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            theme.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 if (blocks.isEmpty()) {
                     EmptyState(onAddTask)

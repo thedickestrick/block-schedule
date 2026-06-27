@@ -29,9 +29,10 @@ once, and recurring ones are scheduled automatically every day.
   **badges** to collect (First Step 🐣, Superstar Kitty 🐱, Lion Heart 🦁, Night Owl 🦉…).
   Points are never lost for un-checking and the streak is never punished. Sound, celebrations,
   and badge popups are each toggleable in Settings.
-- **A new theme every day:** the cast of animals rotates daily ("Today's crew: 🦊 Forest
-  Friends", "🐮 Farm Animals", "🐙 Ocean Pals"…) with special themes on holidays, so it feels
-  fresh every single day.
+- **A new theme every day:** the cast of animals rotates daily ("Today's crew: Forest
+  Friends", "Farm Animals", "Ocean Pals"…) with special themes on holidays, so it feels
+  fresh every single day. The crew and the streak buddy are shown as **hand-drawn kawaii
+  illustrations** (custom vector art), not just emoji.
 - **Dopamine dance party 🪩:** mark any task as a "dance party" task (great for end of work or
   lunch) and finishing it — or finishing the whole day — throws a full-screen party with a
   catchy tune, a spinning disco ball, and the day's animals dancing to the beat.

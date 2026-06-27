@@ -115,7 +115,7 @@ fun GameHeader(done: Int, total: Int, game: GameState, onClick: () -> Unit) {
 
             // Streak buddy (evolves as the streak grows) + streak count
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(com.blockschedule.game.Buddy.formFor(game.streak).emoji, fontSize = 34.sp)
+                CuteAnimal(com.blockschedule.game.Buddy.formFor(game.streak).emoji, 40.dp)
                 Text(
                     "🔥 ${game.streak}",
                     style = MaterialTheme.typography.titleMedium,
@@ -242,7 +242,7 @@ fun EvolutionPopup(form: com.blockschedule.game.BuddyForm?) {
                     Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(form?.emoji ?: "", fontSize = 64.sp)
+                    CuteAnimal(form?.emoji ?: "🥚", 72.dp)
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "Your buddy evolved!",

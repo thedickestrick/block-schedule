@@ -103,9 +103,8 @@ fun DancePartyOverlay(message: String?, animals: List<String>, onDismiss: () -> 
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 dancers.forEachIndexed { i, a ->
                     val b = sin((beat + i * 0.14f) * 2 * PI).toFloat()
-                    Text(
-                        a,
-                        fontSize = 42.sp,
+                    CuteAnimal(
+                        a, 46.dp,
                         modifier = Modifier.graphicsLayer {
                             translationY = -abs(b) * 42f
                             rotationZ = b * 16f

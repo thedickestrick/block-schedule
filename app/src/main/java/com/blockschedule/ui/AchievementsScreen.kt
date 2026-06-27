@@ -93,7 +93,7 @@ private fun BuddyCard(streak: Int) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(buddy.emoji, fontSize = 52.sp)
+                CuteAnimal(buddy.emoji, 56.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(buddy.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -116,12 +116,11 @@ private fun BuddyCard(streak: Int) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 com.blockschedule.game.Buddy.FORMS.forEach { f ->
-                    val reached = streak >= f.minStreak
-                    Text(
-                        if (reached) f.emoji else "❔",
-                        fontSize = 24.sp,
-                        modifier = Modifier.graphicsLayer { alpha = if (reached) 1f else 0.5f }
-                    )
+                    if (streak >= f.minStreak) {
+                        CuteAnimal(f.emoji, 28.dp)
+                    } else {
+                        Text("❔", fontSize = 24.sp, modifier = Modifier.graphicsLayer { alpha = 0.5f })
+                    }
                 }
             }
         }
@@ -148,12 +147,12 @@ private fun BadgeCard(a: Achievement, earned: Boolean) {
             Modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Locked badges show the animal faded with a lock hint.
-            Text(
-                text = if (earned) a.emoji else "🔒",
-                fontSize = 44.sp,
-                modifier = if (earned) Modifier else Modifier.padding(2.dp)
-            )
+            // Earned badges show the cute illustration; locked show a lock.
+            if (earned) {
+                CuteAnimal(a.emoji, 48.dp)
+            } else {
+                Text("🔒", fontSize = 44.sp)
+            }
             Spacer(Modifier.height(6.dp))
             Text(
                 a.title,
