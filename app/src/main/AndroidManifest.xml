@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- So the app can talk to Spotify (App Remote) on Android 11+. -->
+    <queries>
+        <package android:name="com.spotify.music" />
+    </queries>
+
     <!-- For the in-app updater: download the new APK and install it. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

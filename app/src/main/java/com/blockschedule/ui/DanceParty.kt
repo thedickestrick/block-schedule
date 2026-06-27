@@ -49,8 +49,18 @@ fun DancePartyOverlay(message: String?, animals: List<String>, onDismiss: () -> 
     val context = LocalContext.current
 
     DisposableEffect(message) {
-        DancePlayer.start(context)
-        onDispose { DancePlayer.stop() }
+        val sp = com.blockschedule.game.SpotifyPrefs(context)
+        if (sp.isConfigured) {
+            com.blockschedule.game.SpotifyController.playPlaylist(
+                context, sp.clientId, sp.redirectUri, sp.playlistUri
+            ) { ok -> if (!ok) DancePlayer.start(context) } // fall back to built-in tune
+        } else {
+            DancePlayer.start(context)
+        }
+        onDispose {
+            com.blockschedule.game.SpotifyController.pause()
+            DancePlayer.stop()
+        }
     }
     LaunchedEffect(message) {
         kotlinx.coroutines.delay(13_500)
