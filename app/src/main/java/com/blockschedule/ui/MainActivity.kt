@@ -1,10 +1,17 @@
 package com.blockschedule.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.core.content.ContextCompat
+import com.blockschedule.reminder.ReminderPrefs
+import com.blockschedule.reminder.ReminderScheduler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,9 +31,26 @@ sealed interface Screen {
 }
 
 class MainActivity : ComponentActivity() {
+
+    private val notifPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            // Re-schedule regardless; reminders only post if granted.
+            ReminderScheduler.rescheduleAsync(applicationContext)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // If reminders are on, make sure we have notification permission (Android 13+).
+        if (ReminderPrefs(this).enabled &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             BlockScheduleTheme {
                 AppRoot()
@@ -36,8 +60,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Keep the widget's "now" highlight fresh whenever the app is used.
+        // Keep the widget's "now" highlight fresh and reminders scheduled whenever the app is used.
         lifecycleScope.launch { WidgetUpdater.update(applicationContext) }
+        ReminderScheduler.rescheduleAsync(applicationContext)
     }
 }
 

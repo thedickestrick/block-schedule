@@ -119,36 +119,31 @@ private fun WidgetContent(
     }
 }
 
+private val OnColor = Color.White
+private val OnColorMuted = Color(0xCCFFFFFF)
+
 @androidx.compose.runtime.Composable
 private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
-    val rowBg = if (isCurrent) NowTint else Card
-    val timeText = if (block.unscheduled) "— —"
-    else ScheduledBlock.formatTime(block.startMinute)
+    val catColor = Color(block.category.colorArgb)
+    val timeText = if (block.unscheduled) "— —" else ScheduledBlock.formatTime(block.startMinute)
 
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(ColorProvider(rowBg))
-            .padding(horizontal = 12.dp, vertical = 7.dp)
-            .clickable(openApp()),
+            .padding(horizontal = 8.dp, vertical = 3.dp)   // margin between colored blocks
+            .background(ColorProvider(catColor))
+            .cornerRadius(10.dp)
+            .clickable(openApp())
+            .padding(horizontal = 12.dp, vertical = 9.dp),  // inner content padding
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Category color chip
-        Box(
-            modifier = GlanceModifier
-                .size(10.dp)
-                .cornerRadius(5.dp)
-                .background(ColorProvider(Color(block.category.colorArgb)))
-        ) {}
-        Spacer(GlanceModifier.width(10.dp))
-
         // Time
         Text(
             text = timeText,
             style = TextStyle(
-                color = ColorProvider(if (isCurrent) HeaderBg else TextMuted),
+                color = ColorProvider(OnColorMuted),
                 fontSize = 13.sp,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                fontWeight = FontWeight.Medium
             ),
             modifier = GlanceModifier.width(64.dp)
         )
@@ -157,25 +152,27 @@ private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
         Text(
             text = block.title + if (block.hasConflict) "  ⚠" else "",
             style = TextStyle(
-                color = ColorProvider(TextDark),
+                color = ColorProvider(OnColor),
                 fontSize = 15.sp,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
+                fontWeight = FontWeight.Bold
             ),
             modifier = GlanceModifier.defaultWeight()
         )
 
+        // Current-block badge: white pill with the category color as its text.
         if (isCurrent) {
             Text(
                 text = "NOW",
                 style = TextStyle(
-                    color = ColorProvider(HeaderBg),
+                    color = ColorProvider(catColor),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
-                )
+                ),
+                modifier = GlanceModifier
+                    .background(ColorProvider(OnColor))
+                    .cornerRadius(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
     }
-    Box(
-        modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(ColorProvider(DividerCol))
-    ) {}
 }

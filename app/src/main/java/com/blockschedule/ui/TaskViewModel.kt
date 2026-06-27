@@ -51,19 +51,25 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(task: TaskEntity) = viewModelScope.launch {
         repo.save(task)
-        WidgetUpdater.update(getApplication())
+        afterChange()
     }
 
     fun delete(task: TaskEntity) = viewModelScope.launch {
         repo.delete(task)
-        WidgetUpdater.update(getApplication())
+        afterChange()
     }
 
     suspend fun getById(id: Long): TaskEntity? = repo.getById(id)
 
     fun getByIdAndDelete(id: Long) = viewModelScope.launch {
         repo.getById(id)?.let { repo.delete(it) }
+        afterChange()
+    }
+
+    /** Keep the widget and reminders in sync after any task change. */
+    private suspend fun afterChange() {
         WidgetUpdater.update(getApplication())
+        com.blockschedule.reminder.ReminderScheduler.reschedule(getApplication())
     }
 
     private fun currentMinute(): Int = LocalTime.now().let { it.hour * 60 + it.minute }

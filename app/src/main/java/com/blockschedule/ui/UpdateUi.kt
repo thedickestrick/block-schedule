@@ -24,13 +24,24 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.blockschedule.reminder.ReminderPrefs
+import com.blockschedule.reminder.ReminderScheduler
 import com.blockschedule.update.UpdateUiState
 import com.blockschedule.update.UpdateViewModel
 
@@ -130,6 +141,10 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
             Modifier.padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            RemindersSection()
+
+            HorizontalDivider()
+
             Text("Updates", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -183,6 +198,71 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun RemindersSection() {
+    val context = LocalContext.current
+    val prefs = remember { ReminderPrefs(context) }
+    var enabled by remember { mutableStateOf(prefs.enabled) }
+    var lead by remember { mutableIntStateOf(prefs.leadMinutes) }
+
+    val notifLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        prefs.enabled = granted
+        enabled = granted
+        ReminderScheduler.rescheduleAsync(context)
+    }
+
+    fun setEnabled(on: Boolean) {
+        val needsPermission = on &&
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            prefs.enabled = on
+            enabled = on
+            ReminderScheduler.rescheduleAsync(context)
+        }
+    }
+
+    fun setLead(value: Int) {
+        val v = value.coerceIn(0, 60)
+        lead = v
+        prefs.leadMinutes = v
+        ReminderScheduler.rescheduleAsync(context)
+    }
+
+    Text("Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Remind me before each task", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "A notification shortly before each scheduled block.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = enabled, onCheckedChange = ::setEnabled)
+    }
+
+    if (enabled) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Remind", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(72.dp))
+            OutlinedButton(onClick = { setLead(lead - 5) }) { Text("–") }
+            Text(
+                if (lead == 0) "at start" else "$lead min before",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.width(140.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            OutlinedButton(onClick = { setLead(lead + 5) }) { Text("+") }
         }
     }
 }
