@@ -121,8 +121,8 @@ same key to ship updates the phone will accept as upgrades.
 
 ## Ideas for later
 
-- Reminders/notifications a few minutes before each block starts.
 - Minute-accurate widget refresh at each block boundary (currently refreshes on app use and
   every ~30 min via the system).
 - Don't flag a small task fully nested inside a big block (e.g. lunch during work) as a conflict.
 - Drag-to-reschedule and per-task custom colors.
+- Richer reminder actions (snooze / mark done) or a persistent "today" notification.
