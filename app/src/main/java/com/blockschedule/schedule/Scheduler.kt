@@ -128,14 +128,20 @@ object Scheduler {
                 placeFlexible(task, task.windowStartMinute, occupied, blocks)
             }
 
-        // 4) "X times a day" tasks: place N instances spread across the window.
+        // 4) "X times a day" tasks: spread N instances evenly across the *free* time in the
+        //    window (gap-aware — it skips over big fixed blocks like work instead of bunching
+        //    every instance right after them).
         topLevel.filter { it.frequency == Frequency.TIMES_PER_DAY && occursOn(it, date) }.forEach { task ->
             val n = task.count.coerceAtLeast(1)
             val ws = task.windowStartMinute.coerceIn(0, DAY)
             val we = task.windowEndMinute.coerceIn(0, DAY)
-            val latestStart = (we - task.durationMinutes).coerceAtLeast(ws)
+            val free = freeIntervals(occupied, ws, we)
+            val totalFree = free.sumOf { it.second - it.first }
             for (i in 0 until n) {
-                val target = if (n == 1) ws else ws + (latestStart - ws) * i / (n - 1)
+                // Centers of N equal slices of the free timeline keep instances off the edges.
+                val fraction = (i + 0.5) / n
+                val offset = (fraction * totalFree).toInt()
+                val target = freeOffsetToMinute(free, offset, ws)
                 placeFlexible(task, target, occupied, blocks)
             }
         }
@@ -215,6 +221,35 @@ object Scheduler {
             if (cursor + duration > windowEnd) return null
         }
         return if (cursor + duration <= windowEnd) cursor else null
+    }
+
+    /** The open (unoccupied) intervals within [ws, we), as (start, endExclusive) pairs. */
+    private fun freeIntervals(occupied: List<IntRange>, ws: Int, we: Int): List<Pair<Int, Int>> {
+        if (we <= ws) return emptyList()
+        val busy = occupied
+            .map { it.first to (it.last + 1) }                 // (start, endExclusive)
+            .map { (s, e) -> maxOf(s, ws) to minOf(e, we) }
+            .filter { (s, e) -> e > s }
+            .sortedBy { it.first }
+        val free = mutableListOf<Pair<Int, Int>>()
+        var cursor = ws
+        for ((s, e) in busy) {
+            if (s > cursor) free += cursor to s
+            cursor = maxOf(cursor, e)
+        }
+        if (cursor < we) free += cursor to we
+        return free
+    }
+
+    /** Maps a free-time [offset] (minutes measured across only the free intervals) to a clock minute. */
+    private fun freeOffsetToMinute(free: List<Pair<Int, Int>>, offset: Int, fallback: Int): Int {
+        var rem = offset
+        for ((s, e) in free) {
+            val len = e - s
+            if (rem < len) return s + rem
+            rem -= len
+        }
+        return free.lastOrNull()?.first ?: fallback
     }
 
     /** Index of the block containing [minuteOfDay], or -1. */
