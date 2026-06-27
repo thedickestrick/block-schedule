@@ -8,10 +8,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,15 +38,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blockschedule.game.GameState
 import kotlin.random.Random
 
-/** Top card: progress ring for the day + level/points + streak. */
+/** Top card: progress ring for the day + level/points + streak. Tap to open achievements. */
 @Composable
-fun GameHeader(done: Int, total: Int, game: GameState) {
+fun GameHeader(done: Int, total: Int, game: GameState, onClick: () -> Unit) {
     val fraction = if (total > 0) done.toFloat() / total else 0f
     val animated by animateFloatAsState(fraction, tween(600), label = "ring")
     val allDone = total > 0 && done == total
@@ -51,7 +55,8 @@ fun GameHeader(done: Int, total: Int, game: GameState) {
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = if (allDone) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface
@@ -123,48 +128,96 @@ fun GameHeader(done: Int, total: Int, game: GameState) {
     }
 }
 
-private data class Confetto(
-    val x: Float, val startY: Float, val color: Color,
-    val size: Float, val drift: Float, val speed: Float
+/** All the cute friends who show up to celebrate. */
+val CUTE_ANIMALS = listOf(
+    "🐱", "🐶", "🦊", "🐰", "🐮", "🐷", "🐭", "🐹", "🐻", "🐨", "🐯", "🦁",
+    "🐸", "🐔", "🐥", "🐤", "🐧", "🦄", "🐴", "🐑", "🐐", "🦝", "🐼", "🦔", "🐣", "🐙"
 )
 
-/** A short confetti burst, re-triggered each time [trigger] changes (and is > 0). */
+fun randomAnimal(): String = CUTE_ANIMALS[Random.nextInt(CUTE_ANIMALS.size)]
+
+private data class AnimalPiece(
+    val emoji: String, val x: Float, val delay: Float,
+    val size: Float, val drift: Float, val spin: Float
+)
+
+/**
+ * A rain of cute animal emoji, re-triggered each time [trigger] changes. [count] controls how
+ * many friends fall (a few for a single task, a whole parade for finishing the day).
+ */
 @Composable
-fun ConfettiOverlay(trigger: Int) {
+fun AnimalShower(trigger: Int, count: Int) {
     if (trigger == 0) return
-    val colors = listOf(
-        Color(0xFF3B5BDB), Color(0xFFE8590C), Color(0xFF2B8A3E),
-        Color(0xFFC2255C), Color(0xFFFFD43B), Color(0xFF9C36B5)
-    )
     val pieces = remember(trigger) {
-        List(70) {
-            Confetto(
+        List(count) {
+            AnimalPiece(
+                emoji = randomAnimal(),
                 x = Random.nextFloat(),
-                startY = -Random.nextFloat() * 0.3f,
-                color = colors[Random.nextInt(colors.size)],
-                size = 8f + Random.nextFloat() * 10f,
-                drift = (Random.nextFloat() - 0.5f) * 0.3f,
-                speed = 0.8f + Random.nextFloat() * 0.5f
+                delay = Random.nextFloat() * 0.25f,
+                size = 26f + Random.nextFloat() * 18f,
+                drift = (Random.nextFloat() - 0.5f) * 0.25f,
+                spin = (Random.nextFloat() - 0.5f) * 90f
             )
         }
     }
     val progress = remember(trigger) { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(trigger) {
         progress.snapTo(0f)
-        progress.animateTo(1f, tween(1900, easing = LinearEasing))
+        progress.animateTo(1f, tween(2200, easing = LinearEasing))
     }
-    Canvas(Modifier.fillMaxSize()) {
-        val p = progress.value
-        if (p >= 1f) return@Canvas
-        pieces.forEach { c ->
-            val y = (c.startY + p * c.speed) * size.height * 1.25f
-            val x = (c.x + c.drift * p) * size.width
-            val alpha = (1f - p).coerceIn(0f, 1f)
-            drawRect(
-                color = c.color.copy(alpha = alpha),
-                topLeft = Offset(x, y),
-                size = Size(c.size, c.size * 1.6f)
+    val p = progress.value
+    if (p >= 1f) return
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = maxWidth.value
+        val h = maxHeight.value
+        pieces.forEach { pc ->
+            val prog = ((p - pc.delay) / (1f - pc.delay)).coerceIn(0f, 1f)
+            val y = (-0.15f + prog * 1.25f) * h
+            val x = (pc.x + pc.drift * kotlin.math.sin(prog * 6.28f)) * w
+            Text(
+                text = pc.emoji,
+                fontSize = pc.size.sp,
+                modifier = Modifier
+                    .offset(x.dp, y.dp)
+                    .graphicsLayer {
+                        rotationZ = prog * pc.spin
+                        alpha = (1f - prog).coerceIn(0f, 1f)
+                    }
             )
+        }
+    }
+}
+
+/** Center popup when a cute badge is earned. */
+@Composable
+fun AchievementPopup(achievement: com.blockschedule.game.Achievement?) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(
+            visible = achievement != null,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(400))
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(
+                    Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(achievement?.emoji ?: "", fontSize = 56.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Badge unlocked!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        achievement?.title ?: "",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }

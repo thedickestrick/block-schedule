@@ -27,6 +27,7 @@ sealed interface Screen {
     data object Today : Screen
     data object AllTasks : Screen
     data object Settings : Screen
+    data object Achievements : Screen
     data class Edit(val taskId: Long?) : Screen
 }
 
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        com.blockschedule.game.SoundPlayer.init(applicationContext)
 
         // If reminders are on, make sure we have notification permission (Android 13+).
         if (ReminderPrefs(this).enabled &&
@@ -82,7 +84,13 @@ private fun AppRoot() {
             onAddTask = { screen = Screen.Edit(null) },
             onEditTask = { id -> screen = Screen.Edit(id) },
             onManageTasks = { screen = Screen.AllTasks },
-            onOpenSettings = { screen = Screen.Settings }
+            onOpenSettings = { screen = Screen.Settings },
+            onOpenAchievements = { screen = Screen.Achievements }
+        )
+
+        is Screen.Achievements -> AchievementsScreen(
+            vm = vm,
+            onBack = { screen = Screen.Today }
         )
 
         is Screen.AllTasks -> AllTasksScreen(

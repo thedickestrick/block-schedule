@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -40,6 +42,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.blockschedule.game.GamePrefs
 import com.blockschedule.reminder.ReminderPrefs
 import com.blockschedule.reminder.ReminderScheduler
 import com.blockschedule.update.UpdateUiState
@@ -138,9 +141,13 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp),
+            Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            FunSection()
+
+            HorizontalDivider()
+
             RemindersSection()
 
             HorizontalDivider()
@@ -199,6 +206,41 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun FunSection() {
+    val context = LocalContext.current
+    val prefs = remember { GamePrefs(context) }
+    var sound by remember { mutableStateOf(prefs.soundEnabled) }
+    var celebrations by remember { mutableStateOf(prefs.celebrationsEnabled) }
+    var achievements by remember { mutableStateOf(prefs.achievementsEnabled) }
+
+    Text("Fun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    ToggleRow("Completion sounds", "A cute chime when you finish a task", sound) {
+        prefs.soundEnabled = it; sound = it
+    }
+    ToggleRow("Celebrations", "Cute animals rain down when you complete tasks", celebrations) {
+        prefs.celebrationsEnabled = it; celebrations = it
+    }
+    ToggleRow("Badge popups", "Show a popup when you earn a new badge", achievements) {
+        prefs.achievementsEnabled = it; achievements = it
+    }
+}
+
+@Composable
+private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

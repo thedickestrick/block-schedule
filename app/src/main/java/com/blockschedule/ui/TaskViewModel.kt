@@ -87,12 +87,16 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         _gameState.value = readGameState()
         if (result.nowDone) _events.tryEmit(GameEvent.PointsEarned(result.pointsDelta))
         if (result.dayJustCompleted) _events.tryEmit(GameEvent.DayCompleted)
+        result.unlocked.forEach { _events.tryEmit(GameEvent.AchievementUnlocked(it)) }
     }
 
     fun isDone(block: ScheduledBlock): Boolean = Scheduler.isDone(block, completions.value)
 
-    private fun readGameState() =
-        GameState(game.points, game.level, game.levelProgress, game.pointsPerLevel, game.streak, game.bestStreak)
+    private fun readGameState() = GameState(
+        points = game.points, level = game.level, levelProgress = game.levelProgress,
+        pointsPerLevel = game.pointsPerLevel, streak = game.streak, bestStreak = game.bestStreak,
+        totalCompleted = game.totalCompleted, perfectDays = game.perfectDays, unlocked = game.unlocked
+    )
 
     fun setDate(date: LocalDate) { _selectedDate.value = date }
     fun goToday() { _selectedDate.value = LocalDate.now() }

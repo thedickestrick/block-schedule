@@ -61,7 +61,8 @@ fun TodayScreen(
     onAddTask: () -> Unit,
     onEditTask: (Long) -> Unit,
     onManageTasks: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenAchievements: () -> Unit
 ) {
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val date by vm.selectedDate.collectAsStateWithLifecycle()
@@ -73,17 +74,30 @@ fun TodayScreen(
     val currentKey = if (isToday) Scheduler.activeLeafKey(blocks, nowMinute) else null
 
     // Celebration feedback
+    val celebrationContext = androidx.compose.ui.platform.LocalContext.current
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    var confettiTrigger by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var showerTrigger by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var showerCount by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     var floatMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var badge by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<com.blockschedule.game.Achievement?>(null)
+    }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         vm.events.collect { event ->
+            val prefs = com.blockschedule.game.GamePrefs(celebrationContext)
             when (event) {
-                is com.blockschedule.game.GameEvent.PointsEarned ->
-                    floatMessage = "+${event.delta} ⭐"
+                is com.blockschedule.game.GameEvent.PointsEarned -> {
+                    com.blockschedule.game.SoundPlayer.playComplete(celebrationContext)
+                    floatMessage = "+${event.delta} ${randomAnimal()}"
+                    if (prefs.celebrationsEnabled) { showerCount = 10; showerTrigger++ }
+                }
                 com.blockschedule.game.GameEvent.DayCompleted -> {
-                    confettiTrigger++
-                    floatMessage = "Day complete! 🎉"
+                    com.blockschedule.game.SoundPlayer.playCelebrate(celebrationContext)
+                    floatMessage = "All done! 🎉"
+                    if (prefs.celebrationsEnabled) { showerCount = 42; showerTrigger++ }
+                }
+                is com.blockschedule.game.GameEvent.AchievementUnlocked -> {
+                    badge = event.achievement
                 }
             }
         }
@@ -92,6 +106,12 @@ fun TodayScreen(
         if (floatMessage != null) {
             kotlinx.coroutines.delay(1400)
             floatMessage = null
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(badge) {
+        if (badge != null) {
+            kotlinx.coroutines.delay(2600)
+            badge = null
         }
     }
 
@@ -143,7 +163,12 @@ fun TodayScreen(
                 if (blocks.isEmpty()) {
                     EmptyState(onAddTask)
                 } else {
-                    GameHeader(done = progress.first, total = progress.second, game = game)
+                    GameHeader(
+                        done = progress.first,
+                        total = progress.second,
+                        game = game,
+                        onClick = onOpenAchievements
+                    )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -170,8 +195,9 @@ fun TodayScreen(
             }
 
             // Celebration overlays
+            AnimalShower(showerTrigger, showerCount)
             FloatingPoints(floatMessage)
-            ConfettiOverlay(confettiTrigger)
+            AchievementPopup(badge)
         }
     }
 }

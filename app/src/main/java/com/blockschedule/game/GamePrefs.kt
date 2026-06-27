@@ -26,6 +26,50 @@ class GamePrefs(context: Context) {
         get() = prefs.getLong(KEY_LAST_DAY, 0)
         set(value) = prefs.edit().putLong(KEY_LAST_DAY, value).apply()
 
+    // --- lifetime stats (for achievements) ---
+
+    var totalCompleted: Int
+        get() = prefs.getInt(KEY_TOTAL, 0)
+        private set(value) = prefs.edit().putInt(KEY_TOTAL, value).apply()
+
+    var perfectDays: Int
+        get() = prefs.getInt(KEY_PERFECT, 0)
+        private set(value) = prefs.edit().putInt(KEY_PERFECT, value).apply()
+
+    private var lastPerfectDay: Long
+        get() = prefs.getLong(KEY_LAST_PERFECT, -1)
+        set(value) = prefs.edit().putLong(KEY_LAST_PERFECT, value).apply()
+
+    var unlocked: Set<String>
+        get() = prefs.getStringSet(KEY_UNLOCKED, emptySet())!!.toSet()
+        private set(value) = prefs.edit().putStringSet(KEY_UNLOCKED, value).apply()
+
+    // --- feature toggles ---
+
+    var soundEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SOUND, true)
+        set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
+
+    var celebrationsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CELEBRATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_CELEBRATE, value).apply()
+
+    var achievementsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ACHIEVE, true)
+        set(value) = prefs.edit().putBoolean(KEY_ACHIEVE, value).apply()
+
+    fun addCompleted() { totalCompleted += 1 }
+
+    /** Records a perfect day; returns true if it's newly counted (not the same day twice). */
+    fun recordPerfectDay(today: Long): Boolean {
+        if (lastPerfectDay == today) return false
+        lastPerfectDay = today
+        perfectDays += 1
+        return true
+    }
+
+    fun unlock(id: String) { unlocked = unlocked + id }
+
     /** Level grows every [POINTS_PER_LEVEL] points, starting at 1. */
     val level: Int get() = 1 + points / POINTS_PER_LEVEL
     /** Points into the current level, and points needed for the level. */
@@ -50,5 +94,12 @@ class GamePrefs(context: Context) {
         private const val KEY_STREAK = "streak"
         private const val KEY_BEST = "best_streak"
         private const val KEY_LAST_DAY = "last_day"
+        private const val KEY_TOTAL = "total_completed"
+        private const val KEY_PERFECT = "perfect_days"
+        private const val KEY_LAST_PERFECT = "last_perfect_day"
+        private const val KEY_UNLOCKED = "unlocked"
+        private const val KEY_SOUND = "sound_enabled"
+        private const val KEY_CELEBRATE = "celebrations_enabled"
+        private const val KEY_ACHIEVE = "achievements_enabled"
     }
 }
