@@ -123,6 +123,8 @@ fun TodayScreen(
             evolveForm = null
         }
     }
+    // Back closes the dance party instead of the app.
+    androidx.activity.compose.BackHandler(enabled = danceMessage != null) { danceMessage = null }
     androidx.compose.runtime.LaunchedEffect(floatMessage) {
         if (floatMessage != null) {
             kotlinx.coroutines.delay(1400)

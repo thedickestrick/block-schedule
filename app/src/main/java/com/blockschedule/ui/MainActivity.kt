@@ -80,6 +80,11 @@ private fun AppRoot() {
     val updateVm: com.blockschedule.update.UpdateViewModel = viewModel()
     var screen by remember { mutableStateOf<Screen>(Screen.Today) }
 
+    // System back navigates to Today from any sub-screen instead of closing the app.
+    androidx.activity.compose.BackHandler(enabled = screen != Screen.Today) {
+        screen = Screen.Today
+    }
+
     // Check for an update once when the app starts (if the user left auto-update on).
     androidx.compose.runtime.LaunchedEffect(Unit) { updateVm.checkOnLaunch() }
 
