@@ -45,11 +45,12 @@ class ScheduleWidget : GlanceAppWidget() {
         val today = LocalDate.now()
         val blocks = Scheduler.blocksFor(today, tasks)
         val now = LocalTime.now().let { it.hour * 60 + it.minute }
-        val currentIndex = Scheduler.currentBlockIndex(blocks, now)
+        val flat = Scheduler.flatten(blocks)
+        val currentKey = Scheduler.activeLeafKey(blocks, now)
         val dateLabel = today.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
 
         provideContent {
-            WidgetContent(dateLabel, blocks, currentIndex)
+            WidgetContent(dateLabel, flat, currentKey)
         }
     }
 }
@@ -67,7 +68,7 @@ private fun openApp() = actionStartActivity<MainActivity>()
 private fun WidgetContent(
     dateLabel: String,
     blocks: List<ScheduledBlock>,
-    currentIndex: Int
+    currentKey: String?
 ) {
     Column(
         modifier = GlanceModifier
@@ -112,7 +113,7 @@ private fun WidgetContent(
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(vertical = 4.dp)) {
                 items(blocks.size) { i ->
-                    BlockRow(blocks[i], isCurrent = i == currentIndex)
+                    BlockRow(blocks[i], isCurrent = blocks[i].key == currentKey)
                 }
             }
         }
@@ -130,13 +131,22 @@ private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 3.dp)   // margin between colored blocks
+            .padding(
+                start = if (block.isSubBlock) 22.dp else 8.dp,
+                end = 8.dp, top = 3.dp, bottom = 3.dp
+            )                                               // indent sub-blocks
             .background(ColorProvider(catColor))
             .cornerRadius(10.dp)
             .clickable(openApp())
-            .padding(horizontal = 12.dp, vertical = 9.dp),  // inner content padding
+            .padding(horizontal = 12.dp, vertical = if (block.isSubBlock) 7.dp else 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (block.isSubBlock) {
+            Text(
+                text = "↳ ",
+                style = TextStyle(color = ColorProvider(OnColorMuted), fontSize = 13.sp)
+            )
+        }
         // Time
         Text(
             text = timeText,

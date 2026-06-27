@@ -76,8 +76,10 @@ fun AllTasksScreen(
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
             ) {
                 items(tasks, key = { it.id }) { task ->
+                    val parentTitle = task.parentId?.let { pid -> tasks.firstOrNull { it.id == pid }?.title }
                     TaskRow(
                         task = task,
+                        parentTitle = parentTitle,
                         onClick = { onEditTask(task.id) },
                         onToggle = { vm.save(task.copy(enabled = it)) }
                     )
@@ -90,6 +92,7 @@ fun AllTasksScreen(
 @Composable
 private fun TaskRow(
     task: TaskEntity,
+    parentTitle: String?,
     onClick: () -> Unit,
     onToggle: (Boolean) -> Unit
 ) {
@@ -115,7 +118,7 @@ private fun TaskRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = describe(task),
+                text = describe(task, parentTitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -124,13 +127,13 @@ private fun TaskRow(
     }
 }
 
-/** Human-readable summary of a task's timing + recurrence. */
-private fun describe(task: TaskEntity): String {
+/** Human-readable summary of a task's timing + recurrence (or parentage for sub-blocks). */
+private fun describe(task: TaskEntity, parentTitle: String?): String {
     val timing = if (task.isFixedTime) {
         ScheduledBlock.formatRange(task.startMinute, task.startMinute + task.durationMinutes)
     } else {
         "${task.durationMinutes} min · ${ScheduledBlock.formatTime(task.windowStartMinute)}–${ScheduledBlock.formatTime(task.windowEndMinute)}"
     }
-    val recur = RecurrenceText.summary(task)
-    return "$timing · $recur"
+    return if (parentTitle != null) "$timing · part of $parentTitle"
+    else "$timing · ${RecurrenceText.summary(task)}"
 }

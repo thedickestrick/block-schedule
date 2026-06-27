@@ -20,9 +20,15 @@ data class ScheduledBlock(
     /** True when the block continues from the previous day (e.g. sleep across midnight). */
     val continuedFromYesterday: Boolean = false,
     /** True when the block runs past midnight into tomorrow. */
-    val continuesTomorrow: Boolean = false
+    val continuesTomorrow: Boolean = false,
+    /** Sub-blocks nested inside this block (e.g. a lunch break within work). */
+    val children: List<ScheduledBlock> = emptyList(),
+    /** True when this block is itself a sub-block of another. */
+    val isSubBlock: Boolean = false
 ) {
     val durationMinutes: Int get() = endMinute - startMinute
+
+    val key: String get() = "$taskId-$startMinute"
 
     fun contains(minuteOfDay: Int): Boolean =
         !unscheduled && minuteOfDay >= startMinute && minuteOfDay < endMinute

@@ -53,7 +53,7 @@ object ReminderScheduler {
         if (prefs.enabled) {
             val tasks = TaskRepository.from(context).enabledTasks()
             val today = LocalDate.now()
-            val blocks = Scheduler.blocksFor(today, tasks)
+            val blocks = Scheduler.flatten(Scheduler.blocksFor(today, tasks))
             val midnight = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             val now = System.currentTimeMillis()
             val lead = prefs.leadMinutes

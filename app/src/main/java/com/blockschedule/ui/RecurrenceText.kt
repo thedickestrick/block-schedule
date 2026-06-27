@@ -39,6 +39,8 @@ object RecurrenceText {
             Frequency.BIWEEKLY -> "Every 2 weeks · ${weekdayList(task)}"
             Frequency.MONTHLY -> "Monthly · ${ordinal(anchor.dayOfMonth)}"
             Frequency.YEARLY -> "Yearly · ${anchor.format(DateTimeFormatter.ofPattern("MMM d"))}"
+            Frequency.TIMES_PER_WEEK -> "${task.count}× a week"
+            Frequency.TIMES_PER_DAY -> "${task.count}× a day"
         }
     }
 }

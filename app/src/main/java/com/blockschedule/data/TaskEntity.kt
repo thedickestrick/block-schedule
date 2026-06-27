@@ -35,6 +35,17 @@ data class TaskEntity(
     /** Bitmask of weekdays for WEEKLY/BIWEEKLY. Bit (DayOfWeek.value - 1): Mon=bit0 .. Sun=bit6. */
     val daysOfWeek: Int = 0,
     /**
+     * How many times, for count-based frequencies:
+     *  - TIMES_PER_WEEK: number of (auto-spread) days per week.
+     *  - TIMES_PER_DAY: number of (flexible, spread) instances each day.
+     */
+    val count: Int = 1,
+    /**
+     * If set, this task is a sub-block nested inside the parent task (e.g. a lunch break
+     * inside Work). It occurs whenever the parent occurs and is shown nested under it.
+     */
+    val parentId: Long? = null,
+    /**
      * Reference date as epoch-day.
      *  - ONCE: the date the task happens.
      *  - Recurring: the first day the task is active (also sets the parity for BIWEEKLY,

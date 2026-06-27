@@ -49,10 +49,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.blockschedule.data.Category
 import com.blockschedule.data.Frequency
 import com.blockschedule.data.TaskEntity
 import com.blockschedule.schedule.ScheduledBlock
+import com.blockschedule.schedule.Scheduler
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -69,6 +71,7 @@ fun EditTaskScreen(
     onDone: () -> Unit
 ) {
     val isEditing = taskId != null
+    val allTasks by vm.allTasks.collectAsStateWithLifecycle()
 
     // Form state
     var title by remember { mutableStateOf("") }
@@ -81,6 +84,8 @@ fun EditTaskScreen(
     var anchorDate by remember { mutableStateOf(LocalDate.now()) }
     var windowStart by remember { mutableStateOf(8 * 60) }
     var windowEnd by remember { mutableStateOf(21 * 60) }
+    var count by remember { mutableStateOf(3) }
+    var parentId by remember { mutableStateOf<Long?>(null) }
     var loaded by remember { mutableStateOf(taskId == null) }
 
     LaunchedEffect(taskId) {
@@ -96,10 +101,20 @@ fun EditTaskScreen(
                 anchorDate = LocalDate.ofEpochDay(t.anchorEpochDay)
                 windowStart = t.windowStartMinute
                 windowEnd = t.windowEndMinute
+                count = t.count
+                parentId = t.parentId
             }
             loaded = true
         }
     }
+
+    // Tasks that can be a parent block for a sub-block (fixed-time, top-level, not this task).
+    val parentOptions = allTasks.filter {
+        it.parentId == null && it.isFixedTime &&
+            it.frequency != Frequency.TIMES_PER_DAY && it.id != (taskId ?: -1L)
+    }
+    val isSub = parentId != null
+    val parentTitle = allTasks.firstOrNull { it.id == parentId }?.title ?: "the block"
 
     Scaffold(
         topBar = {
@@ -155,78 +170,106 @@ fun EditTaskScreen(
                 onSelected = { category = it }
             )
 
-            // Fixed vs flexible
-            SectionLabel("When")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = isFixedTime,
-                    onClick = { isFixedTime = true },
-                    label = { Text("Set start time") }
-                )
-                FilterChip(
-                    selected = !isFixedTime,
-                    onClick = { isFixedTime = false },
-                    label = { Text("Flexible (auto-placed)") }
-                )
+            // Optional: nest this inside an existing fixed block (e.g. lunch within work).
+            if (parentOptions.isNotEmpty() || isSub) {
+                ParentDropdown(parents = parentOptions, selectedId = parentId) { parentId = it }
             }
 
-            if (isFixedTime) {
+            val effectiveFixed = if (frequency == Frequency.TIMES_PER_DAY) false else isFixedTime
+
+            SectionLabel("When")
+            if (isSub) {
+                HelperText("Happens inside “$parentTitle”, on the same days it occurs.")
                 TimeRow("Starts at", startMinute) { startMinute = it }
                 DurationRow(durationMinutes) { durationMinutes = it }
-                Text(
-                    "Ends at ${ScheduledBlock.formatTime(startMinute + durationMinutes)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                HelperText("Ends at ${ScheduledBlock.formatTime(startMinute + durationMinutes)}")
             } else {
-                DurationRow(durationMinutes) { durationMinutes = it }
-                Text(
-                    "Fit anywhere between:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (frequency != Frequency.TIMES_PER_DAY) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = isFixedTime,
+                            onClick = { isFixedTime = true },
+                            label = { Text("Set start time") }
+                        )
+                        FilterChip(
+                            selected = !isFixedTime,
+                            onClick = { isFixedTime = false },
+                            label = { Text("Flexible (auto-placed)") }
+                        )
+                    }
+                }
+                if (effectiveFixed) {
+                    TimeRow("Starts at", startMinute) { startMinute = it }
+                    DurationRow(durationMinutes) { durationMinutes = it }
+                    HelperText("Ends at ${ScheduledBlock.formatTime(startMinute + durationMinutes)}")
+                } else {
+                    DurationRow(durationMinutes) { durationMinutes = it }
+                    HelperText("Fit anywhere between:")
+                    TimeRow("Earliest", windowStart) { windowStart = it }
+                    TimeRow("Latest", windowEnd) { windowEnd = it }
+                }
+            }
+
+            if (!isSub) {
+                SectionLabel("Repeat")
+                EnumDropdown(
+                    label = "Frequency",
+                    selected = frequency,
+                    options = Frequency.entries,
+                    optionLabel = { it.label },
+                    onSelected = { frequency = it }
                 )
-                TimeRow("Earliest", windowStart) { windowStart = it }
-                TimeRow("Latest", windowEnd) { windowEnd = it }
-            }
 
-            // Recurrence
-            SectionLabel("Repeat")
-            EnumDropdown(
-                label = "Frequency",
-                selected = frequency,
-                options = Frequency.entries,
-                optionLabel = { it.label },
-                onSelected = { frequency = it }
-            )
+                when (frequency) {
+                    Frequency.WEEKLY, Frequency.BIWEEKLY -> WeekdayPicker(weekdays) { weekdays = it }
+                    Frequency.TIMES_PER_WEEK -> CountRow(count, "a week", 1, 7) { count = it }
+                    Frequency.TIMES_PER_DAY -> CountRow(count, "a day", 1, 12) { count = it }
+                    else -> {}
+                }
 
-            if (frequency == Frequency.WEEKLY || frequency == Frequency.BIWEEKLY) {
-                WeekdayPicker(weekdays) { weekdays = it }
-            }
+                DateRow(
+                    label = if (frequency == Frequency.ONCE) "Date" else "Starts on",
+                    date = anchorDate
+                ) { anchorDate = it }
 
-            DateRow(
-                label = if (frequency == Frequency.ONCE) "Date" else "Starts on",
-                date = anchorDate
-            ) { anchorDate = it }
-
-            when (frequency) {
-                Frequency.MONTHLY -> HelperText("Repeats on the ${anchorDate.dayOfMonth.ordinal()} of each month.")
-                Frequency.YEARLY -> HelperText("Repeats every ${anchorDate.format(DateTimeFormatter.ofPattern("MMMM d"))}.")
-                else -> {}
+                when (frequency) {
+                    Frequency.MONTHLY ->
+                        HelperText("Repeats on the ${anchorDate.dayOfMonth.ordinal()} of each month.")
+                    Frequency.YEARLY ->
+                        HelperText("Repeats every ${anchorDate.format(DateTimeFormatter.ofPattern("MMMM d"))}.")
+                    Frequency.TIMES_PER_WEEK -> HelperText(
+                        "Lands on: " + Scheduler.spreadDays(count).sortedBy { it.value }
+                            .joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+                    )
+                    Frequency.TIMES_PER_DAY -> HelperText(
+                        "$count evenly-spread times between " +
+                            "${ScheduledBlock.formatTime(windowStart)} and ${ScheduledBlock.formatTime(windowEnd)}."
+                    )
+                    else -> {}
+                }
             }
 
             Spacer(Modifier.height(4.dp))
 
             Button(
                 onClick = {
+                    // Sub-blocks are always fixed-time; "X times a day" is always flexible.
+                    val finalFixed = when {
+                        isSub -> true
+                        frequency == Frequency.TIMES_PER_DAY -> false
+                        else -> isFixedTime
+                    }
                     val entity = TaskEntity(
                         id = taskId ?: 0L,
                         title = title.trim(),
                         category = category,
-                        isFixedTime = isFixedTime,
+                        isFixedTime = finalFixed,
                         startMinute = startMinute,
                         durationMinutes = durationMinutes.coerceAtLeast(5),
                         frequency = frequency,
                         daysOfWeek = TaskEntity.weekdayMask(weekdays),
+                        count = count,
+                        parentId = parentId,
                         anchorEpochDay = anchorDate.toEpochDay(),
                         windowStartMinute = windowStart,
                         windowEndMinute = windowEnd,
@@ -263,6 +306,54 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun HelperText(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ParentDropdown(
+    parents: List<TaskEntity>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = parents.firstOrNull { it.id == selectedId }?.title ?: "Nothing (standalone task)"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Part of (sub-block)") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Nothing (standalone task)") },
+                onClick = { onSelect(null); expanded = false }
+            )
+            parents.forEach { p ->
+                DropdownMenuItem(
+                    text = { Text(p.title) },
+                    onClick = { onSelect(p.id); expanded = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CountRow(value: Int, unit: String, min: Int, max: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("How often", modifier = Modifier.width(96.dp), style = MaterialTheme.typography.bodyLarge)
+        OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(min)) }) { Text("–") }
+        Text(
+            "$value× $unit",
+            modifier = Modifier.width(120.dp),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        OutlinedButton(onClick = { onChange((value + 1).coerceAtMost(max)) }) { Text("+") }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

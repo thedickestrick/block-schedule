@@ -35,7 +35,19 @@ object Scheduler {
             Frequency.MONTHLY -> !date.isBefore(anchor) && matchesMonthDay(anchor, date)
             Frequency.YEARLY ->
                 !date.isBefore(anchor) && date.monthValue == anchor.monthValue && matchesMonthDay(anchor, date)
+            Frequency.TIMES_PER_WEEK ->
+                !date.isBefore(anchor) && date.dayOfWeek in spreadDays(task.count)
+            Frequency.TIMES_PER_DAY -> !date.isBefore(anchor)
         }
+    }
+
+    /**
+     * Pick [n] weekdays (Mon..Sun) spread as evenly as possible across the week, so
+     * "3 times a week" lands on Mon/Wed/Fri, "2" on Mon/Thu, etc. Deterministic.
+     */
+    fun spreadDays(n: Int): Set<DayOfWeek> {
+        val count = n.coerceIn(1, 7)
+        return (0 until count).map { i -> DayOfWeek.of((i * 7 / count) + 1) }.toSet()
     }
 
     private fun matchesWeekday(task: TaskEntity, date: LocalDate): Boolean {
@@ -64,13 +76,18 @@ object Scheduler {
      */
     fun blocksFor(date: LocalDate, tasks: List<TaskEntity>): List<ScheduledBlock> {
         val active = tasks.filter { it.enabled }
+        // Top-level tasks vs sub-blocks (handled after their parents are placed).
+        val topLevel = active.filter { it.parentId == null }
+        val subBlocks = active.filter { it.parentId != null }
 
         val blocks = mutableListOf<ScheduledBlock>()
         // Occupied intervals on today's timeline, used for flexible placement.
         val occupied = mutableListOf<IntRange>()
 
-        // 1) Fixed tasks that start today.
-        active.filter { it.isFixedTime && occursOn(it, date) }.forEach { task ->
+        // 1) Fixed, single-time tasks that start today.
+        topLevel.filter {
+            it.isFixedTime && it.frequency != Frequency.TIMES_PER_DAY && occursOn(it, date)
+        }.forEach { task ->
             val start = task.startMinute.coerceIn(0, DAY)
             val rawEnd = task.startMinute + task.durationMinutes
             val end = rawEnd.coerceAtMost(DAY)
@@ -86,7 +103,9 @@ object Scheduler {
 
         // 2) Fixed tasks from yesterday that spill across midnight into today.
         val yesterday = date.minusDays(1)
-        active.filter { it.isFixedTime && occursOn(it, yesterday) }.forEach { task ->
+        topLevel.filter {
+            it.isFixedTime && it.frequency != Frequency.TIMES_PER_DAY && occursOn(it, yesterday)
+        }.forEach { task ->
             val rawEnd = task.startMinute + task.durationMinutes
             if (rawEnd > DAY) {
                 val end = (rawEnd - DAY).coerceAtMost(DAY)
@@ -101,44 +120,79 @@ object Scheduler {
             }
         }
 
-        // 3) Flexible tasks: greedily fit into open gaps within their window.
-        val flexible = active
-            .filter { !it.isFixedTime && occursOn(it, date) }
+        // 3) Flexible single-instance tasks: greedily fit into open gaps within their window.
+        topLevel
+            .filter { !it.isFixedTime && it.frequency != Frequency.TIMES_PER_DAY && occursOn(it, date) }
             .sortedWith(compareBy({ it.windowStartMinute }, { -it.durationMinutes }, { it.id }))
+            .forEach { task ->
+                placeFlexible(task, task.windowStartMinute, occupied, blocks)
+            }
 
-        flexible.forEach { task ->
-            val slot = findFreeSlot(
-                occupied = occupied,
-                windowStart = task.windowStartMinute.coerceIn(0, DAY),
-                windowEnd = task.windowEndMinute.coerceIn(0, DAY),
-                duration = task.durationMinutes
-            )
-            if (slot != null) {
-                blocks += ScheduledBlock(
-                    taskId = task.id, title = task.title, category = task.category,
-                    startMinute = slot, endMinute = slot + task.durationMinutes, isFlexible = true
-                )
-                occupied += slot until (slot + task.durationMinutes)
-            } else {
-                blocks += ScheduledBlock(
-                    taskId = task.id, title = task.title, category = task.category,
-                    startMinute = -1, endMinute = -1, isFlexible = true, unscheduled = true
+        // 4) "X times a day" tasks: place N instances spread across the window.
+        topLevel.filter { it.frequency == Frequency.TIMES_PER_DAY && occursOn(it, date) }.forEach { task ->
+            val n = task.count.coerceAtLeast(1)
+            val ws = task.windowStartMinute.coerceIn(0, DAY)
+            val we = task.windowEndMinute.coerceIn(0, DAY)
+            val latestStart = (we - task.durationMinutes).coerceAtLeast(ws)
+            for (i in 0 until n) {
+                val target = if (n == 1) ws else ws + (latestStart - ws) * i / (n - 1)
+                placeFlexible(task, target, occupied, blocks)
+            }
+        }
+
+        // 5) Attach sub-blocks as children of their parent's block for today.
+        val childrenByParent = mutableMapOf<Long, MutableList<ScheduledBlock>>()
+        subBlocks.forEach { sub ->
+            val parentTask = active.firstOrNull { it.id == sub.parentId } ?: return@forEach
+            if (!occursOn(parentTask, date)) return@forEach
+            val start = sub.startMinute.coerceIn(0, DAY)
+            val end = (sub.startMinute + sub.durationMinutes).coerceAtMost(DAY)
+            if (end > start) {
+                childrenByParent.getOrPut(sub.parentId!!) { mutableListOf() } += ScheduledBlock(
+                    taskId = sub.id, title = sub.title, category = sub.category,
+                    startMinute = start, endMinute = end, isFlexible = false, isSubBlock = true
                 )
             }
         }
 
-        // 4) Flag overlaps among placed blocks.
-        val placed = blocks.filter { !it.unscheduled }.toMutableList()
-        val withConflicts = placed.map { b ->
+        // 6) Flag overlaps among top-level placed blocks (sub-blocks are expected to nest).
+        val placed = blocks.filter { !it.unscheduled }
+        val withMeta = placed.map { b ->
             val conflict = placed.any { o ->
                 o !== b && o.taskId != b.taskId &&
                     b.startMinute < o.endMinute && o.startMinute < b.endMinute
             }
-            if (conflict) b.copy(hasConflict = true) else b
+            val kids = childrenByParent[b.taskId]?.sortedBy { it.startMinute } ?: emptyList()
+            b.copy(hasConflict = conflict, children = kids)
         }
 
         val unscheduled = blocks.filter { it.unscheduled }
-        return (withConflicts.sortedBy { it.startMinute } + unscheduled)
+        return (withMeta.sortedBy { it.startMinute } + unscheduled)
+    }
+
+    /** Place one flexible instance starting at/after [preferredStart], else anywhere in window. */
+    private fun placeFlexible(
+        task: TaskEntity,
+        preferredStart: Int,
+        occupied: MutableList<IntRange>,
+        blocks: MutableList<ScheduledBlock>
+    ) {
+        val ws = task.windowStartMinute.coerceIn(0, DAY)
+        val we = task.windowEndMinute.coerceIn(0, DAY)
+        val slot = findFreeSlot(occupied, preferredStart.coerceIn(ws, we), we, task.durationMinutes)
+            ?: findFreeSlot(occupied, ws, we, task.durationMinutes)
+        if (slot != null) {
+            blocks += ScheduledBlock(
+                taskId = task.id, title = task.title, category = task.category,
+                startMinute = slot, endMinute = slot + task.durationMinutes, isFlexible = true
+            )
+            occupied += slot until (slot + task.durationMinutes)
+        } else {
+            blocks += ScheduledBlock(
+                taskId = task.id, title = task.title, category = task.category,
+                startMinute = -1, endMinute = -1, isFlexible = true, unscheduled = true
+            )
+        }
     }
 
     /**
@@ -166,4 +220,23 @@ object Scheduler {
     /** Index of the block containing [minuteOfDay], or -1. */
     fun currentBlockIndex(blocks: List<ScheduledBlock>, minuteOfDay: Int): Int =
         blocks.indexOfFirst { it.contains(minuteOfDay) }
+
+    /**
+     * The deepest block active at [minuteOfDay] — a sub-block takes precedence over its
+     * parent (during lunch, "now" is Lunch, not Work). Returns null if nothing is active.
+     */
+    fun activeLeaf(blocks: List<ScheduledBlock>, minuteOfDay: Int): ScheduledBlock? {
+        val parent = blocks.firstOrNull { b ->
+            b.contains(minuteOfDay) || b.children.any { it.contains(minuteOfDay) }
+        } ?: return null
+        return parent.children.firstOrNull { it.contains(minuteOfDay) } ?: parent
+    }
+
+    /** The key of the active leaf (see [activeLeaf]), or null. */
+    fun activeLeafKey(blocks: List<ScheduledBlock>, minuteOfDay: Int): String? =
+        activeLeaf(blocks, minuteOfDay)?.key
+
+    /** Flattens top-level blocks and their children into a single list (parents before kids). */
+    fun flatten(blocks: List<ScheduledBlock>): List<ScheduledBlock> =
+        blocks.flatMap { listOf(it) + it.children }
 }

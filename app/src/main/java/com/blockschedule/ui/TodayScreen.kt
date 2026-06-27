@@ -63,7 +63,7 @@ fun TodayScreen(
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val nowMinute by vm.nowMinute.collectAsStateWithLifecycle()
     val isToday = date == LocalDate.now()
-    val currentIndex = if (isToday) Scheduler.currentBlockIndex(blocks, nowMinute) else -1
+    val currentKey = if (isToday) Scheduler.activeLeafKey(blocks, nowMinute) else null
 
     Scaffold(
         topBar = {
@@ -120,11 +120,10 @@ fun TodayScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(blocks, key = { "${it.taskId}-${it.startMinute}-${it.continuedFromYesterday}" }) { block ->
-                        val idx = blocks.indexOf(block)
                         BlockCard(
                             block = block,
-                            isCurrent = idx == currentIndex,
-                            onClick = { onEditTask(block.taskId) }
+                            currentKey = currentKey,
+                            onEdit = onEditTask
                         )
                     }
                 }
@@ -171,68 +170,111 @@ private fun DateBar(
 @Composable
 private fun BlockCard(
     block: ScheduledBlock,
-    isCurrent: Boolean,
-    onClick: () -> Unit
+    currentKey: String?,
+    onEdit: (Long) -> Unit
 ) {
-    val catColor = Color(block.category.colorArgb)
+    val isCurrent = block.key == currentKey
     val bg = when {
         isCurrent -> MaterialTheme.colorScheme.primaryContainer
         block.unscheduled -> MaterialTheme.colorScheme.surfaceVariant
         else -> MaterialTheme.colorScheme.surface
     }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(bg)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onEdit(block.taskId) }
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.width(6.dp).height(44.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Color(block.category.colorArgb))
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = block.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (block.hasConflict) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "Overlaps another task",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                val sub = when {
+                    block.unscheduled -> "No free time today — adjust its window"
+                    else -> buildString {
+                        append(ScheduledBlock.formatRange(block.startMinute, block.endMinute))
+                        append("  ·  ")
+                        append(block.category.label)
+                        if (block.isFlexible) append("  ·  flexible")
+                        if (block.continuedFromYesterday) append("  ·  from yesterday")
+                        if (block.continuesTomorrow) append("  ·  into tomorrow")
+                    }
+                }
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isCurrent) {
+                Spacer(Modifier.width(8.dp))
+                NowPill()
+            }
+        }
+
+        // Nested sub-blocks (e.g. a lunch break inside work).
+        block.children.forEach { child ->
+            ChildRow(child = child, isCurrent = child.key == currentKey) { onEdit(child.taskId) }
+        }
+    }
+}
+
+@Composable
+private fun ChildRow(child: ScheduledBlock, isCurrent: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(bg)
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(start = 30.dp, end = 12.dp, top = 2.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Text("↳", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(6.dp))
         Box(
-            Modifier.width(6.dp).height(44.dp).clip(RoundedCornerShape(3.dp)).background(catColor)
+            Modifier.width(4.dp).height(34.dp).clip(RoundedCornerShape(2.dp))
+                .background(Color(child.category.colorArgb))
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = block.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (block.hasConflict) {
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        Icons.Default.Warning,
-                        contentDescription = "Overlaps another task",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-            val sub = when {
-                block.unscheduled -> "No free time today — adjust its window"
-                else -> buildString {
-                    append(ScheduledBlock.formatRange(block.startMinute, block.endMinute))
-                    append("  ·  ")
-                    append(block.category.label)
-                    if (block.isFlexible) append("  ·  flexible")
-                    if (block.continuedFromYesterday) append("  ·  from yesterday")
-                    if (block.continuesTomorrow) append("  ·  into tomorrow")
-                }
-            }
             Text(
-                text = sub,
+                text = child.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = ScheduledBlock.formatRange(child.startMinute, child.endMinute) + "  ·  break",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (isCurrent) {
-            Spacer(Modifier.width(8.dp))
-            NowPill()
-        }
+        if (isCurrent) NowPill()
     }
 }
 

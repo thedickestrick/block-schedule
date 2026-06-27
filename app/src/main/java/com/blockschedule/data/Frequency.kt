@@ -15,9 +15,14 @@ enum class Frequency(val label: String) {
     WEEKLY("Weekly"),
     BIWEEKLY("Every 2 weeks"),
     MONTHLY("Monthly"),
-    YEARLY("Yearly");
+    YEARLY("Yearly"),
+    TIMES_PER_WEEK("Times per week"),
+    TIMES_PER_DAY("Times per day");
 
     val isRecurring: Boolean get() = this != ONCE
+
+    /** Frequencies that use [TaskEntity.count]. */
+    val usesCount: Boolean get() = this == TIMES_PER_WEEK || this == TIMES_PER_DAY
 
     companion object {
         fun fromName(name: String): Frequency =
