@@ -93,8 +93,4 @@ dependencies {
     // Glance (home screen widget)
     implementation("androidx.glance:glance-appwidget:1.1.0")
     implementation("androidx.glance:glance-material3:1.1.0")
-
-    // Spotify App Remote (play the user's playlist during the dance party). Local AAR.
-    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
-    implementation("com.google.code.gson:gson:2.10.1")
 }

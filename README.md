@@ -35,9 +35,7 @@ once, and recurring ones are scheduled automatically every day.
   illustrations** (custom vector art), not just emoji.
 - **Dopamine dance party 🪩:** mark any task as a "dance party" task (great for end of work or
   lunch) and finishing it — or finishing the whole day — throws a full-screen party with a
-  spinning disco ball and the day's animals dancing to the beat. Music is the built-in tune by
-  default, or **her own Spotify playlist** (e.g. Taylor Swift dance songs) with Premium — see
-  [SPOTIFY_SETUP.md](SPOTIFY_SETUP.md).
+  catchy tune, a spinning disco ball, and the day's animals dancing to the beat.
 - **Streak buddy:** a companion that evolves as the streak grows — 🥚 egg → 🐣 → 🐰 → 🦊 → 🐯 →
   🦁 → 🦄 → 🐉 — shown in the header, with the evolution ladder on the Badges screen and a
   celebration each time it levels up.

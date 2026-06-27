@@ -22,7 +22,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -149,10 +148,6 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
 
             HorizontalDivider()
 
-            SpotifySection()
-
-            HorizontalDivider()
-
             RemindersSection()
 
             HorizontalDivider()
@@ -211,57 +206,6 @@ fun SettingsScreen(updateVm: UpdateViewModel, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-@Composable
-private fun SpotifySection() {
-    val context = LocalContext.current
-    val prefs = remember { com.blockschedule.game.SpotifyPrefs(context) }
-    var enabled by remember { mutableStateOf(prefs.enabled) }
-    var clientId by remember { mutableStateOf(prefs.clientId) }
-    var playlist by remember { mutableStateOf(prefs.playlistRaw) }
-
-    Text("Dance party music", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    ToggleRow(
-        "Play my Spotify playlist",
-        "Needs Spotify Premium + the Spotify app. Otherwise the built-in tune plays.",
-        enabled
-    ) { prefs.enabled = it; enabled = it }
-
-    if (enabled) {
-        OutlinedTextField(
-            value = clientId,
-            onValueChange = { clientId = it; prefs.clientId = it },
-            label = { Text("Spotify client ID") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = playlist,
-            onValueChange = {
-                playlist = it
-                prefs.playlistRaw = it
-                prefs.playlistUri = com.blockschedule.game.SpotifyPrefs.normalizeToUri(it)
-            },
-            label = { Text("Playlist link") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        val uri = com.blockschedule.game.SpotifyPrefs.normalizeToUri(playlist)
-        Text(
-            if (playlist.isBlank()) "Paste a Spotify playlist link (open the playlist in Spotify → Share → Copy link)."
-            else if (uri.isBlank()) "Hmm, that doesn't look like a Spotify playlist link."
-            else "Ready: $uri",
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (playlist.isNotBlank() && uri.isBlank()) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            "One-time setup is needed in Spotify's developer dashboard — see SPOTIFY_SETUP in the project.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
