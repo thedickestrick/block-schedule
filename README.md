@@ -9,6 +9,11 @@ once, and recurring ones are scheduled automatically every day.
 - **Recurring tasks** are scheduled automatically: **daily, weekly, every 2 weeks,
   monthly, yearly**. (Weekly/bi-weekly let you pick specific weekdays, e.g. gym on
   Mon/Wed/Fri.)
+- **Count-based frequencies:** **X times a week** (auto-spread across the week, e.g. 3× →
+  Mon/Wed/Fri) and **X times a day** (N instances spread across a window, e.g. drink water 4×).
+- **Sub-blocks:** nest a task inside another, like a lunch break inside the work block. It
+  shows indented under its parent, follows the parent's days, and during it the "now"
+  highlight points at the sub-block (not the parent).
 - **One-time tasks** (doctor appointments, meetings) for a specific date.
 - **Two kinds of timing:**
   - **Fixed time** — has a set start and length (Work 9–5, Sleep 11pm–7am, Gym 6pm).
