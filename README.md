@@ -22,8 +22,14 @@ once, and recurring ones are scheduled automatically every day.
     is too full it tells you instead of silently dropping it.
 - **Block scheduling:** everything is laid out on the day's timeline. Blocks that cross
   midnight (sleep) are handled, and overlapping tasks are flagged with a ⚠.
-- **Home-screen widget:** today's schedule with the **current task highlighted ("NOW")**.
-  Tap it to open the app. There's an "add widget to home screen" button in the app's top bar.
+- **Rewards (ADHD-friendly):** tap a task's circle to complete it — instant check, haptic
+  buzz, and **+points** that float up. A progress ring fills as the day fills in, finishing
+  the day sets off **confetti** and a bonus, and a gentle **daily streak** + **levels** build
+  over time. Points are never lost for un-checking, and the streak is never punished.
+- **Home-screen widget:** today's schedule with the **current task highlighted ("NOW")**, a
+  done/total count, and **tap-to-complete right from the home screen** (lowest-friction
+  dopamine). Tap a row to open the app. There's an "add widget to home screen" button in the
+  app's top bar.
 - **All data stays on the phone** (Room/SQLite). No accounts, no internet, fully private.
 
 ## Install on a phone (once)

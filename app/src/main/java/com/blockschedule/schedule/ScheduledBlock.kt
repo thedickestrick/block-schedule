@@ -24,7 +24,9 @@ data class ScheduledBlock(
     /** Sub-blocks nested inside this block (e.g. a lunch break within work). */
     val children: List<ScheduledBlock> = emptyList(),
     /** True when this block is itself a sub-block of another. */
-    val isSubBlock: Boolean = false
+    val isSubBlock: Boolean = false,
+    /** 0-based index among same-task instances on this day (for "X times a day"). */
+    val instanceIndex: Int = 0
 ) {
     val durationMinutes: Int get() = endMinute - startMinute
 

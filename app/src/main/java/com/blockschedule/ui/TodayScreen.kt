@@ -21,10 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -36,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,8 +66,34 @@ fun TodayScreen(
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val nowMinute by vm.nowMinute.collectAsStateWithLifecycle()
+    val completions by vm.completions.collectAsStateWithLifecycle()
+    val progress by vm.progress.collectAsStateWithLifecycle()
+    val game by vm.gameState.collectAsStateWithLifecycle()
     val isToday = date == LocalDate.now()
     val currentKey = if (isToday) Scheduler.activeLeafKey(blocks, nowMinute) else null
+
+    // Celebration feedback
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var confettiTrigger by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var floatMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        vm.events.collect { event ->
+            when (event) {
+                is com.blockschedule.game.GameEvent.PointsEarned ->
+                    floatMessage = "+${event.delta} ⭐"
+                com.blockschedule.game.GameEvent.DayCompleted -> {
+                    confettiTrigger++
+                    floatMessage = "Day complete! 🎉"
+                }
+            }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(floatMessage) {
+        if (floatMessage != null) {
+            kotlinx.coroutines.delay(1400)
+            floatMessage = null
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -98,36 +128,50 @@ fun TodayScreen(
             }
         }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            DateBar(
-                date = date,
-                isToday = isToday,
-                onPrev = vm::prevDay,
-                onNext = vm::nextDay,
-                onToday = vm::goToday
-            )
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
+                DateBar(
+                    date = date,
+                    isToday = isToday,
+                    onPrev = vm::prevDay,
+                    onNext = vm::nextDay,
+                    onToday = vm::goToday
+                )
 
-            UpdateBanner(updateVm)
+                UpdateBanner(updateVm)
 
-            if (blocks.isEmpty()) {
-                EmptyState(onAddTask)
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        top = 8.dp, bottom = 96.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(blocks, key = { "${it.taskId}-${it.startMinute}-${it.continuedFromYesterday}" }) { block ->
-                        BlockCard(
-                            block = block,
-                            currentKey = currentKey,
-                            onEdit = onEditTask
-                        )
+                if (blocks.isEmpty()) {
+                    EmptyState(onAddTask)
+                } else {
+                    GameHeader(done = progress.first, total = progress.second, game = game)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            top = 8.dp, bottom = 96.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(blocks, key = { "${it.taskId}-${it.startMinute}-${it.continuedFromYesterday}" }) { block ->
+                            BlockCard(
+                                block = block,
+                                currentKey = currentKey,
+                                isDone = { Scheduler.isDone(it, completions) },
+                                onToggleDone = {
+                                    haptic.performHapticFeedback(
+                                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                                    )
+                                    vm.toggleComplete(it)
+                                },
+                                onEdit = onEditTask
+                            )
+                        }
                     }
                 }
             }
+
+            // Celebration overlays
+            FloatingPoints(floatMessage)
+            ConfettiOverlay(confettiTrigger)
         }
     }
 }
@@ -171,10 +215,14 @@ private fun DateBar(
 private fun BlockCard(
     block: ScheduledBlock,
     currentKey: String?,
+    isDone: (ScheduledBlock) -> Boolean,
+    onToggleDone: (ScheduledBlock) -> Unit,
     onEdit: (Long) -> Unit
 ) {
     val isCurrent = block.key == currentKey
+    val done = !block.unscheduled && isDone(block)
     val bg = when {
+        done -> MaterialTheme.colorScheme.surfaceVariant
         isCurrent -> MaterialTheme.colorScheme.primaryContainer
         block.unscheduled -> MaterialTheme.colorScheme.surfaceVariant
         else -> MaterialTheme.colorScheme.surface
@@ -191,7 +239,7 @@ private fun BlockCard(
         ) {
             Box(
                 Modifier.width(6.dp).height(44.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Color(block.category.colorArgb))
+                    .background(Color(block.category.colorArgb).copy(alpha = if (done) 0.4f else 1f))
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -199,11 +247,14 @@ private fun BlockCard(
                     Text(
                         text = block.title,
                         style = MaterialTheme.typography.titleMedium,
+                        textDecoration = if (done) TextDecoration.LineThrough else null,
+                        color = if (done) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (block.hasConflict) {
+                    if (block.hasConflict && !done) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.Warning,
@@ -230,21 +281,37 @@ private fun BlockCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (isCurrent) {
+            if (isCurrent && !done) {
                 Spacer(Modifier.width(8.dp))
                 NowPill()
+            }
+            if (!block.unscheduled) {
+                Spacer(Modifier.width(8.dp))
+                CompleteCircle(done = done, onClick = { onToggleDone(block) })
             }
         }
 
         // Nested sub-blocks (e.g. a lunch break inside work).
         block.children.forEach { child ->
-            ChildRow(child = child, isCurrent = child.key == currentKey) { onEdit(child.taskId) }
+            ChildRow(
+                child = child,
+                isCurrent = child.key == currentKey,
+                done = isDone(child),
+                onToggleDone = { onToggleDone(child) },
+                onClick = { onEdit(child.taskId) }
+            )
         }
     }
 }
 
 @Composable
-private fun ChildRow(child: ScheduledBlock, isCurrent: Boolean, onClick: () -> Unit) {
+private fun ChildRow(
+    child: ScheduledBlock,
+    isCurrent: Boolean,
+    done: Boolean,
+    onToggleDone: () -> Unit,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -256,7 +323,7 @@ private fun ChildRow(child: ScheduledBlock, isCurrent: Boolean, onClick: () -> U
         Spacer(Modifier.width(6.dp))
         Box(
             Modifier.width(4.dp).height(34.dp).clip(RoundedCornerShape(2.dp))
-                .background(Color(child.category.colorArgb))
+                .background(Color(child.category.colorArgb).copy(alpha = if (done) 0.4f else 1f))
         )
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -264,7 +331,12 @@ private fun ChildRow(child: ScheduledBlock, isCurrent: Boolean, onClick: () -> U
                 text = child.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                textDecoration = if (done) TextDecoration.LineThrough else null,
+                color = when {
+                    done -> MaterialTheme.colorScheme.onSurfaceVariant
+                    isCurrent -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -274,7 +346,30 @@ private fun ChildRow(child: ScheduledBlock, isCurrent: Boolean, onClick: () -> U
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (isCurrent) NowPill()
+        if (isCurrent && !done) NowPill()
+        Spacer(Modifier.width(8.dp))
+        CompleteCircle(done = done, onClick = onToggleDone)
+    }
+}
+
+@Composable
+private fun CompleteCircle(done: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        if (done) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = "Completed — tap to undo",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(30.dp)
+            )
+        } else {
+            Icon(
+                Icons.Outlined.Circle,
+                contentDescription = "Mark complete",
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(30.dp)
+            )
+        }
     }
 }
 

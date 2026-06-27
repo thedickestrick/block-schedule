@@ -6,9 +6,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -27,6 +30,7 @@ import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextDecoration
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.blockschedule.data.TaskRepository
@@ -47,10 +51,13 @@ class ScheduleWidget : GlanceAppWidget() {
         val now = LocalTime.now().let { it.hour * 60 + it.minute }
         val flat = Scheduler.flatten(blocks)
         val currentKey = Scheduler.activeLeafKey(blocks, now)
+        val day = today.toEpochDay()
+        val doneCounts = TaskRepository.from(context).getCompletions(day).associate { it.taskId to it.doneCount }
+        val (doneTotal, total) = Scheduler.progress(blocks, doneCounts)
         val dateLabel = today.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
 
         provideContent {
-            WidgetContent(dateLabel, flat, currentKey)
+            WidgetContent(dateLabel, flat, currentKey, doneCounts, day, doneTotal, total)
         }
     }
 }
@@ -68,8 +75,13 @@ private fun openApp() = actionStartActivity<MainActivity>()
 private fun WidgetContent(
     dateLabel: String,
     blocks: List<ScheduledBlock>,
-    currentKey: String?
+    currentKey: String?,
+    doneCounts: Map<Long, Int>,
+    day: Long,
+    doneTotal: Int,
+    total: Int
 ) {
+    val allDone = total > 0 && doneTotal == total
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -77,7 +89,7 @@ private fun WidgetContent(
             .cornerRadius(16.dp)
             .clickable(openApp())
     ) {
-        // Header
+        // Header with progress count
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
@@ -86,7 +98,7 @@ private fun WidgetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Today",
+                text = if (allDone) "All done! 🎉" else "Today",
                 style = TextStyle(
                     color = ColorProvider(Color.White),
                     fontSize = 16.sp,
@@ -94,10 +106,17 @@ private fun WidgetContent(
                 ),
                 modifier = GlanceModifier.defaultWeight()
             )
-            Text(
-                text = dateLabel,
-                style = TextStyle(color = ColorProvider(Color(0xFFD7E0FF)), fontSize = 13.sp)
-            )
+            if (total > 0) {
+                Text(
+                    text = "$doneTotal/$total  ·  $dateLabel",
+                    style = TextStyle(color = ColorProvider(Color(0xFFD7E0FF)), fontSize = 13.sp)
+                )
+            } else {
+                Text(
+                    text = dateLabel,
+                    style = TextStyle(color = ColorProvider(Color(0xFFD7E0FF)), fontSize = 13.sp)
+                )
+            }
         }
 
         if (blocks.isEmpty()) {
@@ -113,7 +132,13 @@ private fun WidgetContent(
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize().padding(vertical = 4.dp)) {
                 items(blocks.size) { i ->
-                    BlockRow(blocks[i], isCurrent = blocks[i].key == currentKey)
+                    val b = blocks[i]
+                    BlockRow(
+                        block = b,
+                        isCurrent = b.key == currentKey,
+                        done = Scheduler.isDone(b, doneCounts),
+                        day = day
+                    )
                 }
             }
         }
@@ -124,8 +149,9 @@ private val OnColor = Color.White
 private val OnColorMuted = Color(0xCCFFFFFF)
 
 @androidx.compose.runtime.Composable
-private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
-    val catColor = Color(block.category.colorArgb)
+private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean, done: Boolean, day: Long) {
+    val base = Color(block.category.colorArgb)
+    val catColor = if (done) base.copy(alpha = 0.45f) else base
     val timeText = if (block.unscheduled) "— —" else ScheduledBlock.formatTime(block.startMinute)
 
     Row(
@@ -138,7 +164,8 @@ private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
             .background(ColorProvider(catColor))
             .cornerRadius(10.dp)
             .clickable(openApp())
-            .padding(horizontal = 12.dp, vertical = if (block.isSubBlock) 7.dp else 9.dp),
+            .padding(start = 12.dp, end = 6.dp, top = if (block.isSubBlock) 7.dp else 9.dp,
+                bottom = if (block.isSubBlock) 7.dp else 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (block.isSubBlock) {
@@ -155,26 +182,26 @@ private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
             ),
-            modifier = GlanceModifier.width(64.dp)
+            modifier = GlanceModifier.width(60.dp)
         )
 
         // Title
         Text(
-            text = block.title + if (block.hasConflict) "  ⚠" else "",
+            text = block.title + if (block.hasConflict && !done) "  ⚠" else "",
             style = TextStyle(
                 color = ColorProvider(OnColor),
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None
             ),
             modifier = GlanceModifier.defaultWeight()
         )
 
-        // Current-block badge: white pill with the category color as its text.
-        if (isCurrent) {
+        if (isCurrent && !done) {
             Text(
                 text = "NOW",
                 style = TextStyle(
-                    color = ColorProvider(catColor),
+                    color = ColorProvider(base),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 ),
@@ -182,6 +209,30 @@ private fun BlockRow(block: ScheduledBlock, isCurrent: Boolean) {
                     .background(ColorProvider(OnColor))
                     .cornerRadius(8.dp)
                     .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+            Spacer(GlanceModifier.width(6.dp))
+        }
+
+        // Tap target to complete / uncomplete (skips unscheduled blocks).
+        if (!block.unscheduled) {
+            Text(
+                text = if (done) "✓" else "○",
+                style = TextStyle(
+                    color = ColorProvider(OnColor),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                modifier = GlanceModifier
+                    .clickable(
+                        actionRunCallback<ToggleDoneAction>(
+                            actionParametersOf(
+                                ToggleDoneAction.taskIdKey to block.taskId,
+                                ToggleDoneAction.indexKey to block.instanceIndex,
+                                ToggleDoneAction.dayKey to day
+                            )
+                        )
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
     }

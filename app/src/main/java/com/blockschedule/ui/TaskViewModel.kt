@@ -5,16 +5,25 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.blockschedule.data.TaskEntity
 import com.blockschedule.data.TaskRepository
+import com.blockschedule.game.CompletionManager
+import com.blockschedule.game.GameEvent
+import com.blockschedule.game.GamePrefs
+import com.blockschedule.game.GameState
 import com.blockschedule.schedule.ScheduledBlock
 import com.blockschedule.schedule.Scheduler
 import com.blockschedule.widget.WidgetUpdater
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -43,6 +52,47 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         combine(allTasks, _selectedDate) { tasks, date ->
             Scheduler.blocksFor(date, tasks)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // --- gamification ---
+
+    private val game = GamePrefs(app)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val completions: StateFlow<Map<Long, Int>> =
+        _selectedDate
+            .flatMapLatest { date -> repo.observeCompletions(date.toEpochDay()) }
+            .map { list -> list.associate { it.taskId to it.doneCount } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** (completed, total) for the selected day. */
+    val progress: StateFlow<Pair<Int, Int>> =
+        combine(blocks, completions) { b, c -> Scheduler.progress(b, c) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0 to 0)
+
+    private val _gameState = MutableStateFlow(readGameState())
+    val gameState: StateFlow<GameState> = _gameState.asStateFlow()
+
+    private val _events = MutableSharedFlow<GameEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<GameEvent> = _events
+
+    init {
+        // Refresh points/streak whenever completion data changes (incl. widget toggles).
+        viewModelScope.launch { completions.collect { _gameState.value = readGameState() } }
+    }
+
+    fun toggleComplete(block: ScheduledBlock) = viewModelScope.launch {
+        val result = CompletionManager.toggle(
+            getApplication(), block.taskId, block.instanceIndex, _selectedDate.value.toEpochDay()
+        )
+        _gameState.value = readGameState()
+        if (result.nowDone) _events.tryEmit(GameEvent.PointsEarned(result.pointsDelta))
+        if (result.dayJustCompleted) _events.tryEmit(GameEvent.DayCompleted)
+    }
+
+    fun isDone(block: ScheduledBlock): Boolean = Scheduler.isDone(block, completions.value)
+
+    private fun readGameState() =
+        GameState(game.points, game.level, game.levelProgress, game.pointsPerLevel, game.streak, game.bestStreak)
 
     fun setDate(date: LocalDate) { _selectedDate.value = date }
     fun goToday() { _selectedDate.value = LocalDate.now() }

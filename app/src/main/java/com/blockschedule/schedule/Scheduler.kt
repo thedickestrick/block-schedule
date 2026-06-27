@@ -142,7 +142,7 @@ object Scheduler {
                 val fraction = (i + 0.5) / n
                 val offset = (fraction * totalFree).toInt()
                 val target = freeOffsetToMinute(free, offset, ws)
-                placeFlexible(task, target, occupied, blocks)
+                placeFlexible(task, target, occupied, blocks, instanceIndex = i)
             }
         }
 
@@ -181,7 +181,8 @@ object Scheduler {
         task: TaskEntity,
         preferredStart: Int,
         occupied: MutableList<IntRange>,
-        blocks: MutableList<ScheduledBlock>
+        blocks: MutableList<ScheduledBlock>,
+        instanceIndex: Int = 0
     ) {
         val ws = task.windowStartMinute.coerceIn(0, DAY)
         val we = task.windowEndMinute.coerceIn(0, DAY)
@@ -190,13 +191,15 @@ object Scheduler {
         if (slot != null) {
             blocks += ScheduledBlock(
                 taskId = task.id, title = task.title, category = task.category,
-                startMinute = slot, endMinute = slot + task.durationMinutes, isFlexible = true
+                startMinute = slot, endMinute = slot + task.durationMinutes, isFlexible = true,
+                instanceIndex = instanceIndex
             )
             occupied += slot until (slot + task.durationMinutes)
         } else {
             blocks += ScheduledBlock(
                 taskId = task.id, title = task.title, category = task.category,
-                startMinute = -1, endMinute = -1, isFlexible = true, unscheduled = true
+                startMinute = -1, endMinute = -1, isFlexible = true, unscheduled = true,
+                instanceIndex = instanceIndex
             )
         }
     }
@@ -274,4 +277,21 @@ object Scheduler {
     /** Flattens top-level blocks and their children into a single list (parents before kids). */
     fun flatten(blocks: List<ScheduledBlock>): List<ScheduledBlock> =
         blocks.flatMap { listOf(it) + it.children }
+
+    /** Whether [block] is completed, given per-task done counts for the day. */
+    fun isDone(block: ScheduledBlock, doneCounts: Map<Long, Int>): Boolean =
+        block.instanceIndex < (doneCounts[block.taskId] ?: 0)
+
+    /** (completed, total) leaf instances for the day. */
+    fun progress(blocks: List<ScheduledBlock>, doneCounts: Map<Long, Int>): Pair<Int, Int> {
+        var done = 0
+        var total = 0
+        flatten(blocks).filter { !it.unscheduled }
+            .groupBy { it.taskId }
+            .forEach { (taskId, list) ->
+                total += list.size
+                done += minOf(doneCounts[taskId] ?: 0, list.size)
+            }
+        return done to total
+    }
 }
