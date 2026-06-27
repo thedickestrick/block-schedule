@@ -18,4 +18,5 @@ sealed interface GameEvent {
     data class PointsEarned(val delta: Int) : GameEvent
     data object DayCompleted : GameEvent
     data class AchievementUnlocked(val achievement: Achievement) : GameEvent
+    data class DanceParty(val message: String) : GameEvent
 }

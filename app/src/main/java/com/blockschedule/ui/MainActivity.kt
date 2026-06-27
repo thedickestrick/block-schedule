@@ -66,6 +66,12 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { WidgetUpdater.update(applicationContext) }
         ReminderScheduler.rescheduleAsync(applicationContext)
     }
+
+    override fun onStop() {
+        super.onStop()
+        // Don't let the dance music keep playing if the app goes to the background.
+        com.blockschedule.game.DancePlayer.stop()
+    }
 }
 
 @Composable

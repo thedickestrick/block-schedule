@@ -12,6 +12,7 @@ data class ToggleResult(
     val nowDone: Boolean,
     val pointsDelta: Int,
     val dayJustCompleted: Boolean,
+    val taskParty: Boolean = false,
     val unlocked: List<Achievement> = emptyList()
 )
 
@@ -46,6 +47,7 @@ object CompletionManager {
 
         // Did this complete the whole day?
         val tasks = repo.enabledTasks()
+        val taskParty = !wasDone && tasks.firstOrNull { it.id == taskId }?.partyOnComplete == true
         val blocks = Scheduler.blocksFor(LocalDate.ofEpochDay(epochDay), tasks)
         val counts = repo.getCompletions(epochDay).associate { it.taskId to it.doneCount }
         val (done, total) = Scheduler.progress(blocks, counts)
@@ -79,6 +81,7 @@ object CompletionManager {
             nowDone = !wasDone,
             pointsDelta = delta,
             dayJustCompleted = dayJustCompleted,
+            taskParty = taskParty,
             unlocked = unlocked
         )
     }

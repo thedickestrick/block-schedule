@@ -146,12 +146,13 @@ private data class AnimalPiece(
  * many friends fall (a few for a single task, a whole parade for finishing the day).
  */
 @Composable
-fun AnimalShower(trigger: Int, count: Int) {
+fun AnimalShower(trigger: Int, count: Int, animals: List<String> = CUTE_ANIMALS) {
     if (trigger == 0) return
+    val pool = animals.ifEmpty { CUTE_ANIMALS }
     val pieces = remember(trigger) {
         List(count) {
             AnimalPiece(
-                emoji = randomAnimal(),
+                emoji = pool[Random.nextInt(pool.size)],
                 x = Random.nextFloat(),
                 delay = Random.nextFloat() * 0.25f,
                 size = 26f + Random.nextFloat() * 18f,

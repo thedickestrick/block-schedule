@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -86,6 +87,7 @@ fun EditTaskScreen(
     var windowEnd by remember { mutableStateOf(21 * 60) }
     var count by remember { mutableStateOf(3) }
     var parentId by remember { mutableStateOf<Long?>(null) }
+    var party by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(taskId == null) }
 
     LaunchedEffect(taskId) {
@@ -103,6 +105,7 @@ fun EditTaskScreen(
                 windowEnd = t.windowEndMinute
                 count = t.count
                 parentId = t.parentId
+                party = t.partyOnComplete
             }
             loaded = true
         }
@@ -249,6 +252,19 @@ fun EditTaskScreen(
                 }
             }
 
+            // Dance party reward
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Dance party when done 🪩", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Throw a music dance party when you finish this (great for end of work or lunch!)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = party, onCheckedChange = { party = it })
+            }
+
             Spacer(Modifier.height(4.dp))
 
             Button(
@@ -273,6 +289,7 @@ fun EditTaskScreen(
                         anchorEpochDay = anchorDate.toEpochDay(),
                         windowStartMinute = windowStart,
                         windowEndMinute = windowEnd,
+                        partyOnComplete = party,
                         enabled = true
                     )
                     vm.save(entity)

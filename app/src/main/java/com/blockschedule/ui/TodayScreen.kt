@@ -72,6 +72,7 @@ fun TodayScreen(
     val game by vm.gameState.collectAsStateWithLifecycle()
     val isToday = date == LocalDate.now()
     val currentKey = if (isToday) Scheduler.activeLeafKey(blocks, nowMinute) else null
+    val theme = com.blockschedule.game.DailyThemes.forDate(date)
 
     // Celebration feedback
     val celebrationContext = androidx.compose.ui.platform.LocalContext.current
@@ -82,13 +83,14 @@ fun TodayScreen(
     var badge by androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateOf<com.blockschedule.game.Achievement?>(null)
     }
+    var danceMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         vm.events.collect { event ->
             val prefs = com.blockschedule.game.GamePrefs(celebrationContext)
             when (event) {
                 is com.blockschedule.game.GameEvent.PointsEarned -> {
                     com.blockschedule.game.SoundPlayer.playComplete(celebrationContext)
-                    floatMessage = "+${event.delta} ${randomAnimal()}"
+                    floatMessage = "+${event.delta} ${theme.animals.random()}"
                     if (prefs.celebrationsEnabled) { showerCount = 10; showerTrigger++ }
                 }
                 com.blockschedule.game.GameEvent.DayCompleted -> {
@@ -98,6 +100,10 @@ fun TodayScreen(
                 }
                 is com.blockschedule.game.GameEvent.AchievementUnlocked -> {
                     badge = event.achievement
+                }
+                is com.blockschedule.game.GameEvent.DanceParty -> {
+                    if (prefs.celebrationsEnabled) danceMessage = event.message
+                    else com.blockschedule.game.SoundPlayer.playCelebrate(celebrationContext)
                 }
             }
         }
@@ -160,6 +166,14 @@ fun TodayScreen(
 
                 UpdateBanner(updateVm)
 
+                Text(
+                    "Today's crew: ${theme.emoji} ${theme.name}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
                 if (blocks.isEmpty()) {
                     EmptyState(onAddTask)
                 } else {
@@ -195,9 +209,10 @@ fun TodayScreen(
             }
 
             // Celebration overlays
-            AnimalShower(showerTrigger, showerCount)
+            AnimalShower(showerTrigger, showerCount, theme.animals)
             FloatingPoints(floatMessage)
             AchievementPopup(badge)
+            DancePartyOverlay(danceMessage, theme.animals) { danceMessage = null }
         }
     }
 }

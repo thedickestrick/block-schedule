@@ -86,8 +86,11 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         )
         _gameState.value = readGameState()
         if (result.nowDone) _events.tryEmit(GameEvent.PointsEarned(result.pointsDelta))
-        if (result.dayJustCompleted) _events.tryEmit(GameEvent.DayCompleted)
         result.unlocked.forEach { _events.tryEmit(GameEvent.AchievementUnlocked(it)) }
+        when {
+            result.dayJustCompleted -> _events.tryEmit(GameEvent.DanceParty("All done today!"))
+            result.taskParty -> _events.tryEmit(GameEvent.DanceParty("${block.title} done!"))
+        }
     }
 
     fun isDone(block: ScheduledBlock): Boolean = Scheduler.isDone(block, completions.value)

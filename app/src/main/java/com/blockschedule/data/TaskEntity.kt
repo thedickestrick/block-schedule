@@ -58,6 +58,9 @@ data class TaskEntity(
     /** Latest end for flexible tasks (minutes from midnight). */
     val windowEndMinute: Int = 21 * 60,
 
+    /** Throw a full dance party when this task is completed (e.g. end of work, lunch time). */
+    val partyOnComplete: Boolean = false,
+
     val enabled: Boolean = true
 ) {
     val endMinute: Int get() = startMinute + durationMinutes
