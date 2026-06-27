@@ -35,6 +35,12 @@ once, and recurring ones are scheduled automatically every day.
 - **Dopamine dance party 🪩:** mark any task as a "dance party" task (great for end of work or
   lunch) and finishing it — or finishing the whole day — throws a full-screen party with a
   catchy tune, a spinning disco ball, and the day's animals dancing to the beat.
+- **Streak buddy:** a companion that evolves as the streak grows — 🥚 egg → 🐣 → 🐰 → 🦊 → 🐯 →
+  🦁 → 🦄 → 🐉 — shown in the header, with the evolution ladder on the Badges screen and a
+  celebration each time it levels up.
+- **Brat check 😼:** if she speed-taps a bunch of tasks suspiciously fast, a sassy little
+  character pops up — "Did you REALLY finish that, or are you just being a brat?" — with an
+  "I really did it!" or "…busted" (which quietly un-checks the last one). Playful accountability.
 - **Home-screen widget:** today's schedule with the **current task highlighted ("NOW")**, a
   done/total count, and **tap-to-complete right from the home screen** (lowest-friction
   dopamine). Tap a row to open the app. There's an "add widget to home screen" button in the

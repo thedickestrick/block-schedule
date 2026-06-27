@@ -80,16 +80,52 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { completions.collect { _gameState.value = readGameState() } }
     }
 
+    // Tracks rapid completions for the playful "brat check".
+    private val recentCompletions = ArrayDeque<Long>()
+    private var lastBratAt = 0L
+    private var lastCompletedBlock: ScheduledBlock? = null
+
     fun toggleComplete(block: ScheduledBlock) = viewModelScope.launch {
         val result = CompletionManager.toggle(
             getApplication(), block.taskId, block.instanceIndex, _selectedDate.value.toEpochDay()
         )
         _gameState.value = readGameState()
-        if (result.nowDone) _events.tryEmit(GameEvent.PointsEarned(result.pointsDelta))
+        if (result.nowDone) {
+            _events.tryEmit(GameEvent.PointsEarned(result.pointsDelta))
+            lastCompletedBlock = block
+            maybeBratCheck()
+        }
         result.unlocked.forEach { _events.tryEmit(GameEvent.AchievementUnlocked(it)) }
+        result.evolvedForm?.let { _events.tryEmit(GameEvent.BuddyEvolved(it)) }
         when {
             result.dayJustCompleted -> _events.tryEmit(GameEvent.DanceParty("All done today!"))
             result.taskParty -> _events.tryEmit(GameEvent.DanceParty("${block.title} done!"))
+        }
+    }
+
+    /** If she's speed-tapping a bunch of tasks, call her out (playfully). */
+    private fun maybeBratCheck() {
+        val now = System.currentTimeMillis()
+        recentCompletions.addLast(now)
+        while (recentCompletions.isNotEmpty() && now - recentCompletions.first() > 5_000) {
+            recentCompletions.removeFirst()
+        }
+        if (recentCompletions.size >= 4 && now - lastBratAt > 20_000) {
+            lastBratAt = now
+            recentCompletions.clear()
+            _events.tryEmit(GameEvent.BratCheck)
+        }
+    }
+
+    /** Undo the most recent completion (used when she admits she didn't really do it). */
+    fun undoLastCompletion() {
+        val b = lastCompletedBlock ?: return
+        if (!Scheduler.isDone(b, completions.value)) return
+        viewModelScope.launch {
+            CompletionManager.toggle(
+                getApplication(), b.taskId, b.instanceIndex, _selectedDate.value.toEpochDay()
+            )
+            _gameState.value = readGameState()
         }
     }
 

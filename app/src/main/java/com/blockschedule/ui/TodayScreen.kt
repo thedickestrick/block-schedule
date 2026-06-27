@@ -84,6 +84,10 @@ fun TodayScreen(
         androidx.compose.runtime.mutableStateOf<com.blockschedule.game.Achievement?>(null)
     }
     var danceMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var evolveForm by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<com.blockschedule.game.BuddyForm?>(null)
+    }
+    var bratVisible by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         vm.events.collect { event ->
             val prefs = com.blockschedule.game.GamePrefs(celebrationContext)
@@ -105,7 +109,18 @@ fun TodayScreen(
                     if (prefs.celebrationsEnabled) danceMessage = event.message
                     else com.blockschedule.game.SoundPlayer.playCelebrate(celebrationContext)
                 }
+                is com.blockschedule.game.GameEvent.BuddyEvolved -> {
+                    com.blockschedule.game.SoundPlayer.playCelebrate(celebrationContext)
+                    evolveForm = event.form
+                }
+                com.blockschedule.game.GameEvent.BratCheck -> { bratVisible = true }
             }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(evolveForm) {
+        if (evolveForm != null) {
+            kotlinx.coroutines.delay(2800)
+            evolveForm = null
         }
     }
     androidx.compose.runtime.LaunchedEffect(floatMessage) {
@@ -212,7 +227,13 @@ fun TodayScreen(
             AnimalShower(showerTrigger, showerCount, theme.animals)
             FloatingPoints(floatMessage)
             AchievementPopup(badge)
+            EvolutionPopup(evolveForm)
             DancePartyOverlay(danceMessage, theme.animals) { danceMessage = null }
+            BratDialog(
+                visible = bratVisible,
+                onReallyDid = { bratVisible = false },
+                onBusted = { bratVisible = false; vm.undoLastCompletion() }
+            )
         }
     }
 }

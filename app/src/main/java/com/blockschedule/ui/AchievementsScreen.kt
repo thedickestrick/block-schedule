@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,8 @@ fun AchievementsScreen(vm: TaskViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            BuddyCard(game.streak)
+
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -73,6 +77,51 @@ fun AchievementsScreen(vm: TaskViewModel, onBack: () -> Unit) {
             ) {
                 items(Achievements.ALL, key = { it.id }) { a ->
                     BadgeCard(a, earned = a.id in unlocked)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuddyCard(streak: Int) {
+    val buddy = com.blockschedule.game.Buddy.formFor(streak)
+    val next = com.blockschedule.game.Buddy.nextForm(streak)
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(buddy.emoji, fontSize = 52.sp)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(buddy.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "🔥 $streak-day streak",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        if (next != null) "Evolves into ${next.emoji} at ${next.minStreak} days"
+                        else "Fully evolved — legendary! 🎉",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                com.blockschedule.game.Buddy.FORMS.forEach { f ->
+                    val reached = streak >= f.minStreak
+                    Text(
+                        if (reached) f.emoji else "❔",
+                        fontSize = 24.sp,
+                        modifier = Modifier.graphicsLayer { alpha = if (reached) 1f else 0.5f }
+                    )
                 }
             }
         }

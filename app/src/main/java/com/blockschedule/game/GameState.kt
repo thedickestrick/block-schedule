@@ -19,4 +19,6 @@ sealed interface GameEvent {
     data object DayCompleted : GameEvent
     data class AchievementUnlocked(val achievement: Achievement) : GameEvent
     data class DanceParty(val message: String) : GameEvent
+    data class BuddyEvolved(val form: BuddyForm) : GameEvent
+    data object BratCheck : GameEvent
 }

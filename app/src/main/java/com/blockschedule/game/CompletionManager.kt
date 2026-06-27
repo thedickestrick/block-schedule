@@ -13,7 +13,8 @@ data class ToggleResult(
     val pointsDelta: Int,
     val dayJustCompleted: Boolean,
     val taskParty: Boolean = false,
-    val unlocked: List<Achievement> = emptyList()
+    val unlocked: List<Achievement> = emptyList(),
+    val evolvedForm: BuddyForm? = null
 )
 
 /**
@@ -37,10 +38,15 @@ object CompletionManager {
         repo.setDoneCount(taskId, epochDay, newCount)
 
         var delta = 0
+        var evolvedForm: BuddyForm? = null
         if (!wasDone) {
             delta += GamePrefs.POINTS_PER_TASK
             game.addCompleted()
-            if (epochDay == LocalDate.now().toEpochDay()) game.bumpStreakForToday(epochDay)
+            if (epochDay == LocalDate.now().toEpochDay()) {
+                val streakBefore = game.streak
+                game.bumpStreakForToday(epochDay)
+                evolvedForm = Buddy.evolvedForm(streakBefore, game.streak)
+            }
         } else {
             delta -= GamePrefs.POINTS_PER_TASK
         }
@@ -82,7 +88,8 @@ object CompletionManager {
             pointsDelta = delta,
             dayJustCompleted = dayJustCompleted,
             taskParty = taskParty,
-            unlocked = unlocked
+            unlocked = unlocked,
+            evolvedForm = evolvedForm
         )
     }
 }

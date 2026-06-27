@@ -22,11 +22,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -111,11 +113,12 @@ fun GameHeader(done: Int, total: Int, game: GameState, onClick: () -> Unit) {
 
             Spacer(Modifier.width(12.dp))
 
+            // Streak buddy (evolves as the streak grows) + streak count
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🔥", fontSize = 22.sp)
+                Text(com.blockschedule.game.Buddy.formFor(game.streak).emoji, fontSize = 34.sp)
                 Text(
-                    "${game.streak}",
-                    style = MaterialTheme.typography.titleLarge,
+                    "🔥 ${game.streak}",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
@@ -221,6 +224,59 @@ fun AchievementPopup(achievement: com.blockschedule.game.Achievement?) {
             }
         }
     }
+}
+
+/** Center popup when the streak buddy evolves into a new animal. */
+@Composable
+fun EvolutionPopup(form: com.blockschedule.game.BuddyForm?) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(
+            visible = form != null,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(400))
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(
+                    Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(form?.emoji ?: "", fontSize = 64.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Your buddy evolved!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        form?.name ?: "",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Sassy "are you really done or just being a brat?" check for speed-tappers. */
+@Composable
+fun BratDialog(visible: Boolean, onReallyDid: () -> Unit, onBusted: () -> Unit) {
+    if (!visible) return
+    AlertDialog(
+        onDismissRequest = onReallyDid,
+        icon = { Text("😼", fontSize = 48.sp) },
+        title = { Text("Hold on a sec…") },
+        text = {
+            Text(
+                "Whoa, that was fast! Did you REALLY finish all that, " +
+                    "or are you just being a little brat? 😼"
+            )
+        },
+        confirmButton = { TextButton(onClick = onReallyDid) { Text("I really did it! 😇") } },
+        dismissButton = { TextButton(onClick = onBusted) { Text("…busted 🙈") } }
+    )
 }
 
 /** Floating message (e.g. "+10") that rises and fades near the top. */
